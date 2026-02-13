@@ -13,12 +13,17 @@ class BigQueryConnector:
     """Connector to fetch shipping speed data from BigQuery"""
 
     def __init__(self):
-        """Initialize BigQuery client"""
-        # Use default credentials from gcloud auth
-        self.client = bigquery.Client()
+        """Initialize BigQuery connector (lazy client initialization)"""
+        self.client = None
         self.dataset_id = "WW_GEC_VM"
         self.table_id = "FIN_MP_PYMT_TRANS"
         self.project = "wmt-edw-prod"
+
+    def get_client(self):
+        """Lazy initialize BigQuery client"""
+        if self.client is None:
+            self.client = bigquery.Client(project=self.project)
+        return self.client
 
     async def get_shipping_speed_distribution(
         self,
@@ -67,7 +72,8 @@ class BigQueryConnector:
 
         try:
             print(f"Querying BigQuery for PID: {pid}...")
-            query_job = self.client.query(query)
+            client = self.get_client()
+            query_job = client.query(query)
             results = query_job.result()
 
             # Parse results into distribution buckets

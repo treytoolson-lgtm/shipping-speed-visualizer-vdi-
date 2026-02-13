@@ -33,7 +33,7 @@ static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-# Initialize BigQuery connector
+# Initialize BigQuery connector (lazy - initializes on first query)
 bq = BigQueryConnector()
 
 
@@ -107,8 +107,8 @@ if __name__ == "__main__":
     print("="*80 + "\n")
 
     uvicorn.run(
-        app,
+        "main:app",
         host="127.0.0.1",
         port=5003,
-        reload=True
+        reload=False
     )
