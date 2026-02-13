@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Speed Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/htmx.org"></script>
+    <style>
+        :root {
+            /* Walmart colors */
+            --blue-100: #0053e2;
+            --blue-110: #0040b8;
+            --blue-130: #002080;
+            --spark-100: #ffc220;
+            --spark-140: #995213;
+            --spark-10: #fff5e6;
+            --green-100: #2a8703;
+            --red-100: #ea1100;
+            --gray-10: #f5f5f5;
+            --gray-50: #d0d0d0;
+            --gray-100: #a8a8a8;
+            --gray-160: #444444;
+            --white: #ffffff;
+            --black: #000000;
+        }
+
+        body {
+            background-color: var(--gray-10);
+            color: var(--gray-160);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .walmart-blue {
+            background-color: var(--blue-100);
+        }
+
+        .walmart-blue:hover {
+            background-color: var(--blue-110);
+        }
+
+        .walmart-blue:active {
+            background-color: var(--blue-130);
+        }
+
+        .btn-primary {
+            background-color: var(--blue-100);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--blue-110);
+        }
+
+        .btn-primary:active {
+            background-color: var(--blue-130);
+        }
+
+        .btn-primary:disabled {
+            background-color: var(--gray-50);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .input-field {
+            border: 1px solid var(--gray-100);
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            font-size: 1rem;
+            color: var(--gray-160);
+            background-color: white;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--blue-100);
+            box-shadow: 0 0 0 3px rgba(0, 83, 226, 0.1);
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-50);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 2rem 0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid var(--gray-50);
+            border-top: 4px solid var(--blue-100);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background-color: #ffe0e0;
+            border: 1px solid var(--red-100);
+            color: var(--red-100);
+            padding: 1rem;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background-color: #e8f5e9;
+            border: 1px solid var(--green-100);
+            color: var(--green-100);
+            padding: 1rem;
+            border-radius: 0.375rem;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .legend {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 0.25rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-box {
+            background-color: var(--gray-10);
+            padding: 1rem;
+            border-radius: 0.375rem;
+            border-left: 4px solid var(--blue-100);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--blue-100);
+            margin: 0.5rem 0 0;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-100);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        h1 {
+            color: var(--blue-100);
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--gray-160);
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .htmx-request .htmx-indicator {
+            display: inline;
+        }
+
+        .htmx-indicator {
+            display: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--gray-100);
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <!-- Header -->
+        <header class="walmart-blue text-white py-6 shadow-lg">
+            <div class="max-w-6xl mx-auto px-4">
+                <h1 class="text-3xl font-bold text-white">🐾 Shipping Speed Visualizer</h1>
+                <p class="text-blue-100 mt-2">Compare WFS vs SFF shipping performance by seller</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-6xl mx-auto px-4 py-8">
+            <!-- Input Section -->
+            <div class="card mb-6">
+                <h2 style="margin-top: 0;">Enter Seller Details</h2>
+                <div id="errorMsg" class="error"></div>
+                <div class="flex gap-4 items-end">
+                    <div class="flex-1">
+                        <label for="pid" class="block text-sm font-medium mb-2">Seller PID</label>
+                        <input
+                            type="text"
+                            id="pid"
+                            class="input-field w-full"
+                            placeholder="Enter PID (e.g., 123456)"
+                            required
+                        />
+                    </div>
+                    <div class="w-32">
+                        <label for="days_back" class="block text-sm font-medium mb-2">Days Back</label>
+                        <input
+                            type="number"
+                            id="days_back"
+                            class="input-field w-full"
+                            value="90"
+                            min="7"
+                            max="365"
+                        />
+                    </div>
+                    <button id="analyzeBtn" class="btn-primary" onclick="analyzeShippingSpeed()">
+                        Analyze
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p class="text-gray-160">Fetching shipping data from BigQuery...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results"></div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-160 text-white py-4 mt-12">
+            <div class="max-w-6xl mx-auto px-4 text-center text-sm">
+                <p>Shipping Speed Visualizer • Powered by 🐕 Code Puppy</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let chartInstance = null;
+
+        async function analyzeShippingSpeed() {
+            const pid = document.getElementById('pid').value.trim();
+            const daysBack = parseInt(document.getElementById('days_back').value);
+            const errorMsg = document.getElementById('errorMsg');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            // Validation
+            if (!pid) {
+                errorMsg.textContent = 'Please enter a PID';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            // Reset UI
+            errorMsg.classList.remove('show');
+            results.innerHTML = '';
+            loading.classList.add('show');
+            analyzeBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/shipping-speed', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pid: pid,
+                        days_back: daysBack
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to fetch data');
+                }
+
+                const data = await response.json();
+                loading.classList.remove('show');
+                displayResults(data);
+
+            } catch (error) {
+                loading.classList.remove('show');
+                errorMsg.textContent = `Error: ${error.message}`;
+                errorMsg.classList.add('show');
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const results = document.getElementById('results');
+            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
+
+            const wfsValues = labels.map(label => data.wfs_data[label] || 0);
+            const sffValues = labels.map(label => data.sff_data[label] || 0);
+
+            // Calculate percentages
+            const totalWfs = data.total_wfs_orders;
+            const totalSff = data.total_sff_orders;
+
+            // Stats HTML
+            const statsHTML = `
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">WFS Orders</div>
+                        <div class="stat-value">${totalWfs.toLocaleString()}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">SFF Orders</div>
+                        <div class="stat-value">${totalSff.toLocaleString()}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-value">${(totalWfs + totalSff).toLocaleString()}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Period</div>
+                        <div class="stat-value" style="font-size: 1rem;">${data.analysis_period}</div>
+                    </div>
+                </div>
+            `;
+
+            results.innerHTML = `
+                <div class="card">
+                    <h2>Results for PID: ${data.pid}</h2>
+                    ${statsHTML}
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #0053e2;"></div>
+                            <span>WFS (Walmart Fulfilled)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #ffc220;"></div>
+                            <span>SFF (Seller Fulfilled)</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="shippingChart"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Initialize chart
+            setTimeout(() => {
+                const ctx = document.getElementById('shippingChart');
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'WFS (Walmart Fulfilled)',
+                                data: wfsValues,
+                                backgroundColor: '#0053e2',
+                                borderColor: '#002080',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            },
+                            {
+                                label: 'SFF (Seller Fulfilled)',
+                                data: sffValues,
+                                backgroundColor: '#ffc220',
+                                borderColor: '#995213',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: { size: 12, weight: 'bold' },
+                                    padding: 15,
+                                    boxWidth: 12,
+                                    boxHeight: 12,
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Order Count by Shipping Speed (Days)',
+                                font: { size: 14, weight: 'bold' },
+                                padding: 15
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Orders',
+                                    font: { weight: 'bold' }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Delivery Speed (Days)',
+                                    font: { weight: 'bold' }
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }, 0);
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('pid').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzeShippingSpeed();
+            }
+        });
+    </script>
+</body>
+</html>
