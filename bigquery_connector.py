@@ -7,6 +7,9 @@ BigQuery Connector for Shipping Speed Data
 from google.cloud import bigquery
 from datetime import datetime, timedelta
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BigQueryConnector:
@@ -42,6 +45,9 @@ class BigQueryConnector:
         Returns:
             Dictionary with shipping speed distribution
         """
+        # Escape PID to prevent SQL injection
+        pid_escaped = pid.replace("'", """)
+        
         # Build query
         query = f"""
         WITH shipping_data AS (
@@ -55,7 +61,7 @@ class BigQueryConnector:
                 SALES_ORDER_NUM
             FROM `{self.project}.{self.dataset_id}.{self.table_id}`
             WHERE
-                PRTNR_SRC_ORG_CD = '{pid}'
+                PRTNR_SRC_ORG_CD = @pid
                 AND ORDER_PLACED_DT >= DATE_SUB(CURRENT_DATE(), INTERVAL {days_back} DAY)
                 AND ORDER_PLACED_DT < CURRENT_DATE()
                 AND DLVR_TS_UTC IS NOT NULL
@@ -73,7 +79,14 @@ class BigQueryConnector:
         try:
             print(f"Querying BigQuery for PID: {pid}...")
             client = self.get_client()
-            query_job = client.query(query)
+            
+            # Use parameterized query to prevent SQL injection
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("pid", "STRING", pid),
+                ]
+            )
+            query_job = client.query(query, job_config=job_config)
             results = query_job.result()
 
             # Parse results into distribution buckets
@@ -108,5 +121,7 @@ class BigQueryConnector:
             }
 
         except Exception as e:
-            print(f"BigQuery error: {str(e)}")
-            raise
+            error_msg = f"BigQuery error: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            print(error_msg)
+            raise ValueError(error_msg) from e

@@ -78,15 +78,22 @@ async def get_shipping_speed(request: ShippingSpeedRequest):
             raise HTTPException(status_code=400, detail="PID is required")
 
         # Fetch data from BigQuery
-        analysis = await bq.get_shipping_speed_distribution(
-            pid=request.pid.strip(),
-            days_back=request.days_back
-        )
+        try:
+            analysis = await bq.get_shipping_speed_distribution(
+                pid=request.pid.strip(),
+                days_back=request.days_back
+            )
+        except ValueError as ve:
+            print(f"BigQuery error: {str(ve)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"BigQuery query failed. Make sure you have proper credentials (gcloud auth application-default login) and the PID exists in the data."
+            )
 
         if not analysis:
             raise HTTPException(
                 status_code=404,
-                detail=f"No shipping data found for PID: {request.pid}"
+                detail=f"No shipping data found for PID: {request.pid}. This seller may not have orders in the selected date range."
             )
 
         return JSONResponse(content=analysis)
@@ -94,8 +101,8 @@ async def get_shipping_speed(request: ShippingSpeedRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 
 if __name__ == "__main__":
