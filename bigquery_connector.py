@@ -45,8 +45,7 @@ class BigQueryConnector:
         Returns:
             Dictionary with shipping speed distribution
         """
-        # Escape PID to prevent SQL injection
-        pid_escaped = pid.replace("'", """)
+        # No need to escape - using parameterized queries
         
         # Build query
         query = f"""
