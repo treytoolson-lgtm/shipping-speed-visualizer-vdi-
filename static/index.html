@@ -85,16 +85,18 @@
                         required
                     />
                 </div>
-                <div class="w-full sm:w-32">
-                    <label for="days_back" class="block text-sm font-semibold mb-2 text-slate-200">Days Back</label>
-                    <input
-                        type="number"
-                        id="days_back"
-                        class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition"
-                        value="90"
-                        min="7"
-                        max="365"
-                    />
+                <div class="w-full sm:w-40">
+                    <label for="time_period" class="block text-sm font-semibold mb-2 text-slate-200">Time Period</label>
+                    <select
+                        id="time_period"
+                        class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition"
+                    >
+                        <option value="30">1 Month</option>
+                        <option value="90" selected>3 Months</option>
+                        <option value="180">6 Months</option>
+                        <option value="270">9 Months</option>
+                        <option value="365">12 Months</option>
+                    </select>
                 </div>
                 <button id="analyzeBtn" class="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl" onclick="analyzeShippingSpeed()">
                     Analyze
@@ -121,10 +123,43 @@
 
     <script>
         let chartInstance = null;
+        let monthlyChartInstance = null;
+        let quarterlyChartInstance = null;
+        let currentView = 'overall';
+
+        function switchView(viewName) {
+            // Hide all views
+            document.getElementById('overall-view').classList.add('hidden');
+            const quarterlyView = document.getElementById('quarterly-view');
+            const monthlyView = document.getElementById('monthly-view');
+            if (quarterlyView) quarterlyView.classList.add('hidden');
+            if (monthlyView) monthlyView.classList.add('hidden');
+            
+            // Remove active state from all tabs
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.classList.remove('bg-blue-600', 'text-white');
+                tab.classList.add('bg-slate-700', 'text-slate-300');
+            });
+            
+            // Show selected view
+            if (viewName === 'overall') {
+                document.getElementById('overall-view').classList.remove('hidden');
+            } else if (viewName === 'quarterly' && quarterlyView) {
+                quarterlyView.classList.remove('hidden');
+            } else if (viewName === 'monthly' && monthlyView) {
+                monthlyView.classList.remove('hidden');
+            }
+            
+            // Set active tab style
+            document.querySelector(`[data-view="${viewName}"]`).classList.remove('bg-slate-700', 'text-slate-300');
+            document.querySelector(`[data-view="${viewName}"]`).classList.add('bg-blue-600', 'text-white');
+            
+            currentView = viewName;
+        }
 
         async function analyzeShippingSpeed() {
             const pid = document.getElementById('pid').value.trim();
-            const daysBack = parseInt(document.getElementById('days_back').value);
+            const daysBack = parseInt(document.getElementById('time_period').value);
             const errorMsg = document.getElementById('errorMsg');
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
@@ -178,18 +213,30 @@
             const results = document.getElementById('results');
             const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
 
-            const wfsValues = labels.map(label => data.wfs_data[label] || 0);
-            const sffValues = labels.map(label => data.sff_data[label] || 0);
-
             const totalWfs = data.total_wfs_orders;
             const totalSff = data.total_sff_orders;
+            const grandTotal = totalWfs + totalSff;
+            
+            // Calculate percentages
+            const wfsValues = labels.map(label => {
+                const count = data.wfs_data[label] || 0;
+                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
+            });
+            const sffValues = labels.map(label => {
+                const count = data.sff_data[label] || 0;
+                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
+            });
+            
+            // Check if we have quarterly data (for 12 months view)
+            const hasQuarterlyData = data.quarterly_data && Object.keys(data.quarterly_data).length > 0;
 
             results.innerHTML = `
                 <div class="bg-gradient-to-br from-slate-800 to-slate-700 rounded-lg shadow-lg p-6 border border-slate-600 card-hover fade-in">
-                    <h2 class="text-2xl font-bold mb-6">Results for PID: <span class="text-blue-400">${data.pid}</span></h2>
+                    <h2 class="text-2xl font-bold mb-2">Results for PID: <span class="text-blue-400">${data.pid}</span></h2>
+                    <p class="text-slate-400 text-sm mb-6">📅 Date Range: <span class="text-slate-300 font-semibold">${data.date_range}</span></p>
                     
                     <!-- Stats Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
                         <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-blue-500">
                             <div class="text-slate-400 text-sm font-semibold uppercase">WFS Orders</div>
                             <div class="text-2xl font-bold text-blue-400 mt-2">${totalWfs.toLocaleString()}</div>
@@ -201,10 +248,6 @@
                         <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-purple-500">
                             <div class="text-slate-400 text-sm font-semibold uppercase">Total Orders</div>
                             <div class="text-2xl font-bold text-purple-400 mt-2">${(totalWfs + totalSff).toLocaleString()}</div>
-                        </div>
-                        <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-cyan-500">
-                            <div class="text-slate-400 text-sm font-semibold uppercase">Period</div>
-                            <div class="text-lg font-bold text-cyan-400 mt-2">${data.analysis_period}</div>
                         </div>
                     </div>
 
@@ -220,10 +263,66 @@
                         </div>
                     </div>
 
-                    <!-- Chart -->
-                    <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container">
+                    <!-- View Tabs/Buttons -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button onclick="switchView('overall')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all active bg-blue-600 text-white" data-view="overall">
+                            📊 Overall
+                        </button>
+                        ${data.quarterly_data ? `
+                            <button onclick="switchView('quarterly')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600" data-view="quarterly">
+                                📅 Quarterly
+                            </button>
+                        ` : ''}
+                        ${data.monthly_data ? `
+                            <button onclick="switchView('monthly')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600" data-view="monthly">
+                                📆 Monthly
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <!-- Overall Chart -->
+                    <div id="overall-view" class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-8">
                         <canvas id="shippingChart"></canvas>
                     </div>
+                    
+                    ${data.quarterly_data ? `
+                        <!-- Quarterly View -->
+                        <div id="quarterly-view" class="hidden">
+                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-6">
+                                <canvas id="quarterlyChartMain"></canvas>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.monthly_data ? `
+                        <!-- Monthly View -->
+                        <div id="monthly-view" class="hidden">
+                            <div class="flex flex-wrap gap-2 mb-6">
+                                ${Object.keys(data.monthly_data).map((month, idx) => `
+                                    <button 
+                                        onclick="showMonthlyChart('${month}', ${JSON.stringify(data.monthly_data[month]).replace(/'/g, "\'")})" 
+                                        class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${idx === 0 ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}"
+                                        data-month="${month}"
+                                    >
+                                        ${month}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-6">
+                                <canvas id="monthlyChart"></canvas>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${hasQuarterlyData ? `
+                        <!-- Fiscal Quarter Breakdown -->
+                        <div class="mt-8 pt-8 border-t border-slate-600">
+                            <h3 class="text-xl font-bold mb-6">📅 Walmart Fiscal Quarter Breakdown</h3>
+                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container">
+                                <canvas id="quarterlyChart"></canvas>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
 
@@ -274,10 +373,22 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Order Count by Shipping Speed (Days)',
+                                text: 'Order Distribution by Shipping Speed',
                                 font: { size: 15, weight: 'bold' },
                                 padding: 15,
                                 color: '#f1f5f9'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += context.parsed.y.toFixed(2) + '%';
+                                        return label;
+                                    }
+                                }
                             }
                         },
                         scales: {
@@ -285,7 +396,7 @@
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: 'Number of Orders',
+                                    text: '% of Orders',
                                     font: { weight: 'bold' },
                                     color: '#e2e8f0'
                                 },
@@ -293,13 +404,16 @@
                                     color: 'rgba(255, 255, 255, 0.05)'
                                 },
                                 ticks: {
-                                    color: '#cbd5e1'
+                                    color: '#cbd5e1',
+                                    callback: function(value) {
+                                        return value.toFixed(1) + '%';
+                                    }
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
-                                    text: 'Delivery Speed (Days)',
+                                    text: 'Shipping Speed',
                                     font: { weight: 'bold' },
                                     color: '#e2e8f0'
                                 },
@@ -313,7 +427,374 @@
                         }
                     }
                 });
+                
+                // Initialize monthly chart if data exists
+                if (data.monthly_data && Object.keys(data.monthly_data).length > 0) {
+                    setTimeout(() => {
+                        const firstMonth = Object.keys(data.monthly_data)[0];
+                        showMonthlyChart(firstMonth, data.monthly_data[firstMonth]);
+                    }, 100);
+                }
+                
+                // Initialize quarterly chart if data exists
+                if (data.quarterly_data && Object.keys(data.quarterly_data).length > 0) {
+                    setTimeout(() => {
+                        initializeQuarterlyChartMain(data.quarterly_data);
+                    }, 200);
+                }
             }, 0);
+        }
+        
+        function initializeQuarterlyChart(quarterlyData) {
+            const quarterlyCtx = document.getElementById('quarterlyChart');
+            if (!quarterlyCtx) return;
+            
+            if (quarterlyChartInstance) {
+                quarterlyChartInstance.destroy();
+            }
+            
+            // Sort quarters chronologically
+            const quarterOrder = ['Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025', 'Q1 FY2026', 'Q2 FY2026', 'Q3 FY2026', 'Q4 FY2026'];
+            const sortedQuarters = Object.keys(quarterlyData).sort((a, b) => {
+                return quarterOrder.indexOf(a) - quarterOrder.indexOf(b);
+            });
+            
+            // Calculate grand total for percentages
+            let grandTotal = 0;
+            sortedQuarters.forEach(q => {
+                grandTotal += quarterlyData[q].wfs + quarterlyData[q].sff;
+            });
+            
+            const wfsQuarterlyValues = sortedQuarters.map(q => 
+                grandTotal > 0 ? (quarterlyData[q].wfs / grandTotal) * 100 : 0
+            );
+            const sffQuarterlyValues = sortedQuarters.map(q => 
+                grandTotal > 0 ? (quarterlyData[q].sff / grandTotal) * 100 : 0
+            );
+            
+            quarterlyChartInstance = new Chart(quarterlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedQuarters,
+                    datasets: [
+                        {
+                            label: 'WFS (Walmart Fulfilled)',
+                            data: wfsQuarterlyValues,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+                        },
+                        {
+                            label: 'SFF (Seller Fulfilled)',
+                            data: sffQuarterlyValues,
+                            backgroundColor: 'rgba(234, 179, 8, 0.8)',
+                            borderColor: 'rgb(234, 179, 8)',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            hoverBackgroundColor: 'rgba(234, 179, 8, 1)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { size: 13, weight: 'bold' },
+                                padding: 15,
+                                boxWidth: 12,
+                                boxHeight: 12,
+                                color: '#f1f5f9'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Order Distribution by Walmart Fiscal Quarter',
+                            font: { size: 15, weight: 'bold' },
+                            padding: 15,
+                            color: '#f1f5f9'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '% of Orders',
+                                font: { weight: 'bold' },
+                                color: '#e2e8f0'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#cbd5e1',
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Fiscal Quarter',
+                                font: { weight: 'bold' },
+                                color: '#e2e8f0'
+                            },
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#cbd5e1'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initializeQuarterlyChartMain(quarterlyData) {
+            """Initialize quarterly view chart showing shipping speed breakdown by quarter"""
+            const quarterlyCtx = document.getElementById('quarterlyChartMain');
+            if (!quarterlyCtx) return;
+            
+            if (quarterlyChartInstance) {
+                quarterlyChartInstance.destroy();
+            }
+            
+            const sortedQuarters = Object.keys(quarterlyData).sort();
+            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
+            
+            // Calculate percentages for each quarter
+            const quarterlyDataBySpeed = {};
+            labels.forEach(label => {
+                quarterlyDataBySpeed[label] = sortedQuarters.map(q => {
+                    const quarter = quarterlyData[q];
+                    const grandTotal = quarter.wfs + quarter.sff;
+                    const count = quarter[label] || 0;
+                    return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
+                });
+            });
+            
+            // Create datasets for each shipping speed
+            const colors = [
+                'rgba(59, 130, 246, 0.8)',    // 2-day blue
+                'rgba(99, 102, 241, 0.8)',    // 3-day indigo
+                'rgba(139, 92, 246, 0.8)',    // 4-day purple
+                'rgba(168, 85, 247, 0.8)',    // 5-day fuchsia
+                'rgba(236, 72, 153, 0.8)',    // 6-day pink
+                'rgba(249, 115, 22, 0.8)',    // 7-day orange
+                'rgba(234, 179, 8, 0.8)',     // 8-day yellow
+                'rgba(34, 197, 94, 0.8)',     // 9-day green
+                'rgba(20, 184, 166, 0.8)',    // 10-day teal
+            ];
+            
+            const datasets = labels.map((label, idx) => ({
+                label: label,
+                data: quarterlyDataBySpeed[label],
+                backgroundColor: colors[idx],
+                borderColor: colors[idx].replace('0.8', '1'),
+                borderWidth: 2,
+                borderRadius: 4,
+            }));
+            
+            quarterlyChartInstance = new Chart(quarterlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedQuarters,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'x',
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { size: 11, weight: '600' },
+                                padding: 10,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                color: '#f1f5f9'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Quarterly Shipping Speed Distribution',
+                            font: { size: 15, weight: 'bold' },
+                            padding: 15,
+                            color: '#f1f5f9'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: false,
+                            ticks: {
+                                color: '#cbd5e1',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            stacked: false,
+                            ticks: {
+                                color: '#cbd5e1',
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function showMonthlyChart(monthName, monthData) {
+            // Update active button
+            document.querySelectorAll('.monthly-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-slate-700', 'text-slate-300');
+            });
+            document.querySelector(`[data-month="${monthName}"]`).classList.add('bg-blue-600', 'text-white');
+            
+            const monthlyCtx = document.getElementById('monthlyChart');
+            if (!monthlyCtx) return;
+            
+            if (monthlyChartInstance) {
+                monthlyChartInstance.destroy();
+            }
+            
+            // Extract shipping speed data
+            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
+            const grandTotal = monthData.wfs + monthData.sff;
+            
+            const wfsValues = labels.map(label => {
+                const count = monthData[label] || 0;
+                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
+            });
+            const sffValues = labels.map(label => 0); // For monthly, we're showing the individual month data
+            
+            monthlyChartInstance = new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Orders',
+                            data: wfsValues,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderColor: 'rgb(59, 130, 246)',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { size: 13, weight: 'bold' },
+                                padding: 15,
+                                boxWidth: 12,
+                                boxHeight: 12,
+                                color: '#f1f5f9'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `${monthName} - Order Distribution by Shipping Speed`,
+                            font: { size: 15, weight: 'bold' },
+                            padding: 15,
+                            color: '#f1f5f9'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '% of Orders',
+                                font: { weight: 'bold' },
+                                color: '#e2e8f0'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#cbd5e1',
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Shipping Speed',
+                                font: { weight: 'bold' },
+                                color: '#e2e8f0'
+                            },
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#cbd5e1'
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         // Allow Enter key to submit

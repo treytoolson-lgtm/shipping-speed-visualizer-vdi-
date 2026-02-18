@@ -33,8 +33,10 @@ static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
-# Initialize BigQuery connector (lazy - initializes on first query)
-bq = BigQueryConnector()
+# Initialize BigQuery connector
+# Set use_mock_data=True for demo mode, False to use real BigQuery
+# When you get BigQuery access, change this to: bq = BigQueryConnector(use_mock_data=False)
+bq = BigQueryConnector(use_mock_data=True)
 
 
 class ShippingSpeedRequest(BaseModel):
@@ -51,6 +53,9 @@ class ShippingSpeedAnalysis(BaseModel):
     total_wfs_orders: int
     total_sff_orders: int
     analysis_period: str
+    date_range: str
+    monthly_data: dict = None
+    quarterly_data: dict = None
 
 
 @app.get("/")
@@ -63,11 +68,12 @@ async def index():
 @app.get("/api/health")
 async def health():
     """Health check endpoint"""
-    return {"status": "ok", "message": "Shipping Speed Visualizer is running!"}
+    mode = "DEMO MODE (Mock Data)" if bq.use_mock_data else "Production Mode (Real BigQuery)"
+    return {"status": "ok", "message": f"Shipping Speed Visualizer is running! [{mode}]"}
 
 
 @app.post("/api/shipping-speed")
-async def get_shipping_speed(request: ShippingSpeedRequest):
+def get_shipping_speed(request: ShippingSpeedRequest):
     """
     Get shipping speed distribution for a seller (PID)
     Returns 2-10 day breakdown for WFS vs SFF
@@ -79,15 +85,33 @@ async def get_shipping_speed(request: ShippingSpeedRequest):
 
         # Fetch data from BigQuery
         try:
-            analysis = await bq.get_shipping_speed_distribution(
+            print(f"[DEBUG] Fetching data for PID: {request.pid}", flush=True)
+            import sys
+            sys.stderr.flush()
+            analysis = bq.get_shipping_speed_distribution(
                 pid=request.pid.strip(),
                 days_back=request.days_back
             )
+            print(f"[DEBUG] Successfully fetched analysis data", flush=True)
         except ValueError as ve:
-            print(f"BigQuery error: {str(ve)}")
+            error_detail = f"BigQuery error: {str(ve)}"
+            print(f"[ERROR] {error_detail}", flush=True)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
             raise HTTPException(
                 status_code=500,
-                detail=f"BigQuery query failed. Make sure you have proper credentials (gcloud auth application-default login) and the PID exists in the data."
+                detail=error_detail
+            )
+        except Exception as bq_error:
+            error_msg = f"BigQuery error: {str(bq_error)}"
+            print(f"[ERROR] {error_msg}", flush=True)
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
+            raise HTTPException(
+                status_code=500,
+                detail=error_msg
             )
 
         if not analysis:
@@ -101,15 +125,19 @@ async def get_shipping_speed(request: ShippingSpeedRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+        print(f"[ERROR] Unexpected error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 if __name__ == "__main__":
     import uvicorn
+    mode = "🎬 DEMO MODE (Using Mock Data)" if bq.use_mock_data else "⚙️ Production Mode (Real BigQuery)"
 
     print("\n" + "="*80)
     print("🐾 Shipping Speed Visualizer")
+    print(f"{mode}")
     print("Running on: http://localhost:5003/")
     print("="*80 + "\n")
 
