@@ -126,6 +126,7 @@
         let monthlyChartInstance = null;
         let quarterlyChartInstance = null;
         let currentView = 'overall';
+        let globalMonthlyData = {};
 
         function switchView(viewName) {
             // Hide all views
@@ -211,6 +212,11 @@
         }
 
         function displayResults(data) {
+            // Store monthly data globally for button clicks
+            if (data.monthly_data) {
+                globalMonthlyData = data.monthly_data;
+            }
+            
             const results = document.getElementById('results');
             const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
 
@@ -301,7 +307,7 @@
                             <div class="flex flex-wrap gap-2 mb-6">
                                 ${Object.keys(data.monthly_data).map((month, idx) => `
                                     <button 
-                                        onclick="showMonthlyChart('${month}', ${JSON.stringify(data.monthly_data[month]).replace(/'/g, "\'")})" 
+                                        onclick="showMonthlyChart('${month}')" 
                                         class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${idx === 0 ? 'bg-[#0071dc] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
                                         data-month="${month}"
                                     >
@@ -425,7 +431,7 @@
                 if (data.monthly_data && Object.keys(data.monthly_data).length > 0) {
                     setTimeout(() => {
                         const firstMonth = Object.keys(data.monthly_data)[0];
-                        showMonthlyChart(firstMonth, data.monthly_data[firstMonth]);
+                        showMonthlyChart(firstMonth);
                     }, 100);
                 }
                 
@@ -677,14 +683,24 @@
             });
         }
         
-        function showMonthlyChart(monthName, monthData) {
+        function showMonthlyChart(monthName) {
+            // Get data from global variable
+            const monthData = globalMonthlyData[monthName];
+            if (!monthData) {
+                console.error('No data found for month:', monthName);
+                return;
+            }
+            
             // Update active button
             document.querySelectorAll('.monthly-btn').forEach(btn => {
                 btn.classList.remove('bg-[#0071dc]', 'text-white');
                 btn.classList.add('bg-gray-100', 'text-gray-700');
             });
-            document.querySelector(`[data-month="${monthName}"]`).classList.remove('bg-gray-100', 'text-gray-700');
-            document.querySelector(`[data-month="${monthName}"]`).classList.add('bg-[#0071dc]', 'text-white');
+            const activeBtn = document.querySelector(`[data-month="${monthName}"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-100', 'text-gray-700');
+                activeBtn.classList.add('bg-[#0071dc]', 'text-white');
+            }
             
             const monthlyCtx = document.getElementById('monthlyChart');
             if (!monthlyCtx) return;
