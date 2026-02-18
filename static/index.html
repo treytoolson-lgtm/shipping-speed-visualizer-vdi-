@@ -54,9 +54,9 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white min-h-screen">
+<body class="bg-gray-50 min-h-screen text-gray-900">
     <!-- Header -->
-    <header class="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-xl sticky top-0 z-50">
+    <header class="bg-[#0071dc] shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div class="flex items-center space-x-3">
                 <span class="text-4xl">📦</span>
@@ -71,25 +71,25 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <!-- Input Section -->
-        <div class="bg-gradient-to-br from-slate-800 to-slate-700 rounded-lg shadow-lg p-6 border border-slate-600 card-hover fade-in mb-8">
-            <h2 class="text-2xl font-bold mb-6">Enter Seller Details</h2>
-            <div id="errorMsg" class="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4 hidden"></div>
+        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-[#ffc220] card-hover fade-in mb-8">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">Enter Seller Details</h2>
+            <div id="errorMsg" class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-4 hidden"></div>
             <div class="flex flex-col sm:flex-row gap-4 items-end">
                 <div class="flex-1">
-                    <label for="pid" class="block text-sm font-semibold mb-2 text-slate-200">Seller PID</label>
+                    <label for="pid" class="block text-sm font-semibold mb-2 text-gray-700">Seller PID</label>
                     <input
                         type="text"
                         id="pid"
-                        class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition"
+                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#0071dc] focus:ring-2 focus:ring-[#0071dc]/50 transition"
                         placeholder="Enter PID (e.g., 10000002874)"
                         required
                     />
                 </div>
                 <div class="w-full sm:w-40">
-                    <label for="time_period" class="block text-sm font-semibold mb-2 text-slate-200">Time Period</label>
+                    <label for="time_period" class="block text-sm font-semibold mb-2 text-gray-700">Time Period</label>
                     <select
                         id="time_period"
-                        class="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition"
+                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:border-[#0071dc] focus:ring-2 focus:ring-[#0071dc]/50 transition"
                     >
                         <option value="30">1 Month</option>
                         <option value="90" selected>3 Months</option>
@@ -98,7 +98,7 @@
                         <option value="365">12 Months</option>
                     </select>
                 </div>
-                <button id="analyzeBtn" class="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl" onclick="analyzeShippingSpeed()">
+                <button id="analyzeBtn" class="w-full sm:w-auto bg-[#0071dc] hover:bg-[#005ba8] active:bg-[#004780] text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl" onclick="analyzeShippingSpeed()"> 
                     Analyze
                 </button>
             </div>
@@ -115,8 +115,8 @@
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-700 bg-slate-900/50 py-6 mt-12">
-        <div class="max-w-7xl mx-auto px-4 text-center text-sm text-slate-400">
+    <footer class="border-t border-gray-300 bg-gray-100 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-600">
             <p>Shipping Speed Visualizer • Powered by Code Puppy 📦</p>
         </div>
     </footer>
@@ -137,8 +137,8 @@
             
             // Remove active state from all tabs
             document.querySelectorAll('.view-tab').forEach(tab => {
-                tab.classList.remove('bg-blue-600', 'text-white');
-                tab.classList.add('bg-slate-700', 'text-slate-300');
+                tab.classList.remove('text-[#0071dc]', 'border-b-[#0071dc]', 'border-b-4');
+                tab.classList.add('text-gray-600', 'border-b-transparent');
             });
             
             // Show selected view
@@ -151,8 +151,9 @@
             }
             
             // Set active tab style
-            document.querySelector(`[data-view="${viewName}"]`).classList.remove('bg-slate-700', 'text-slate-300');
-            document.querySelector(`[data-view="${viewName}"]`).classList.add('bg-blue-600', 'text-white');
+            const activeTab = document.querySelector(`[data-view="${viewName}"]`);
+            activeTab.classList.remove('text-gray-600', 'border-b-transparent');
+            activeTab.classList.add('text-[#0071dc]', 'border-b-4', 'border-b-[#0071dc]');
             
             currentView = viewName;
         }
@@ -231,64 +232,64 @@
             const hasQuarterlyData = data.quarterly_data && Object.keys(data.quarterly_data).length > 0;
 
             results.innerHTML = `
-                <div class="bg-gradient-to-br from-slate-800 to-slate-700 rounded-lg shadow-lg p-6 border border-slate-600 card-hover fade-in">
-                    <h2 class="text-2xl font-bold mb-2">Results for PID: <span class="text-blue-400">${data.pid}</span></h2>
-                    <p class="text-slate-400 text-sm mb-6">📅 Date Range: <span class="text-slate-300 font-semibold">${data.date_range}</span></p>
+                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-[#ffc220] card-hover fade-in">
+                    <h2 class="text-2xl font-bold mb-2 text-gray-800">Results for PID: <span class="text-[#0071dc]">${data.pid}</span></h2>
+                    <p class="text-gray-600 text-sm mb-6">📅 Date Range: <span class="text-gray-800 font-semibold">${data.date_range}</span></p>
                     
                     <!-- Stats Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                        <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-blue-500">
-                            <div class="text-slate-400 text-sm font-semibold uppercase">WFS Orders</div>
-                            <div class="text-2xl font-bold text-blue-400 mt-2">${totalWfs.toLocaleString()}</div>
+                        <div class="bg-gradient-to-br from-blue-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-[#0071dc]">
+                            <div class="text-gray-600 text-sm font-semibold uppercase">WFS Orders</div>
+                            <div class="text-2xl font-bold text-[#0071dc] mt-2">${totalWfs.toLocaleString()}</div>
                         </div>
-                        <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-indigo-500">
-                            <div class="text-slate-400 text-sm font-semibold uppercase">SFF Orders</div>
-                            <div class="text-2xl font-bold text-indigo-400 mt-2">${totalSff.toLocaleString()}</div>
+                        <div class="bg-gradient-to-br from-yellow-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-[#ffc220]">
+                            <div class="text-gray-600 text-sm font-semibold uppercase">SFF Orders</div>
+                            <div class="text-2xl font-bold text-[#ffc220] mt-2">${totalSff.toLocaleString()}</div>
                         </div>
-                        <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-600 border-l-4 border-l-purple-500">
-                            <div class="text-slate-400 text-sm font-semibold uppercase">Total Orders</div>
-                            <div class="text-2xl font-bold text-purple-400 mt-2">${(totalWfs + totalSff).toLocaleString()}</div>
+                        <div class="bg-gradient-to-br from-green-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-green-500">
+                            <div class="text-gray-600 text-sm font-semibold uppercase">Total Orders</div>
+                            <div class="text-2xl font-bold text-green-600 mt-2">${(totalWfs + totalSff).toLocaleString()}</div>
                         </div>
                     </div>
 
                     <!-- Legend -->
                     <div class="flex gap-6 justify-center mb-6 flex-wrap">
                         <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 bg-blue-500 rounded"></div>
-                            <span class="text-slate-300">WFS (Walmart Fulfilled)</span>
+                            <div class="w-4 h-4 bg-[#0071dc] rounded"></div>
+                            <span class="text-gray-700">WFS (Walmart Fulfilled)</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-                            <span class="text-slate-300">SFF (Seller Fulfilled)</span>
+                            <div class="w-4 h-4 bg-[#ffc220] rounded"></div>
+                            <span class="text-gray-700">SFF (Seller Fulfilled)</span>
                         </div>
                     </div>
 
                     <!-- View Tabs/Buttons -->
-                    <div class="flex flex-wrap gap-2 mb-6">
-                        <button onclick="switchView('overall')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all active bg-blue-600 text-white" data-view="overall">
+                    <div class="flex flex-wrap gap-2 mb-6 border-b-2 border-gray-300 pb-2">
+                        <button onclick="switchView('overall')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all active text-[#0071dc] border-b-4 border-[#0071dc]" data-view="overall">
                             📊 Overall
                         </button>
                         ${data.quarterly_data ? `
-                            <button onclick="switchView('quarterly')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600" data-view="quarterly">
+                            <button onclick="switchView('quarterly')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all text-gray-600 hover:text-[#0071dc] border-b-4 border-transparent" data-view="quarterly">
                                 📅 Quarterly
                             </button>
                         ` : ''}
                         ${data.monthly_data ? `
-                            <button onclick="switchView('monthly')" class="view-tab px-4 py-2 rounded-lg font-semibold transition-all bg-slate-700 text-slate-300 hover:bg-slate-600" data-view="monthly">
+                            <button onclick="switchView('monthly')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all text-gray-600 hover:text-[#0071dc] border-b-4 border-transparent" data-view="monthly">
                                 📆 Monthly
                             </button>
                         ` : ''}
                     </div>
 
                     <!-- Overall Chart -->
-                    <div id="overall-view" class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-8">
+                    <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-8 shadow-sm">
                         <canvas id="shippingChart"></canvas>
                     </div>
                     
                     ${data.quarterly_data ? `
                         <!-- Quarterly View -->
                         <div id="quarterly-view" class="hidden">
-                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-6">
+                            <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
                                 <canvas id="quarterlyChartMain"></canvas>
                             </div>
                         </div>
@@ -301,28 +302,20 @@
                                 ${Object.keys(data.monthly_data).map((month, idx) => `
                                     <button 
                                         onclick="showMonthlyChart('${month}', ${JSON.stringify(data.monthly_data[month]).replace(/'/g, "\'")})" 
-                                        class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${idx === 0 ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}"
+                                        class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${idx === 0 ? 'bg-[#0071dc] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
                                         data-month="${month}"
                                     >
                                         ${month}
                                     </button>
                                 `).join('')}
                             </div>
-                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container mb-6">
+                            <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
                                 <canvas id="monthlyChart"></canvas>
                             </div>
                         </div>
                     ` : ''}
                     
-                    ${hasQuarterlyData ? `
-                        <!-- Fiscal Quarter Breakdown -->
-                        <div class="mt-8 pt-8 border-t border-slate-600">
-                            <h3 class="text-xl font-bold mb-6">📅 Walmart Fiscal Quarter Breakdown</h3>
-                            <div class="bg-slate-900/30 rounded-lg border border-slate-600 chart-container">
-                                <canvas id="quarterlyChart"></canvas>
-                            </div>
-                        </div>
-                    ` : ''}
+
                 </div>
             `;
 
@@ -340,20 +333,20 @@
                             {
                                 label: 'WFS (Walmart Fulfilled)',
                                 data: wfsValues,
-                                backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(0, 113, 220, 0.8)',
+                                borderColor: 'rgb(0, 113, 220)',
                                 borderWidth: 2,
                                 borderRadius: 6,
-                                hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+                                hoverBackgroundColor: 'rgba(0, 113, 220, 1)',
                             },
                             {
                                 label: 'SFF (Seller Fulfilled)',
                                 data: sffValues,
-                                backgroundColor: 'rgba(234, 179, 8, 0.8)',
-                                borderColor: 'rgb(234, 179, 8)',
+                                backgroundColor: 'rgba(255, 194, 32, 0.8)',
+                                borderColor: 'rgb(255, 194, 32)',
                                 borderWidth: 2,
                                 borderRadius: 6,
-                                hoverBackgroundColor: 'rgba(234, 179, 8, 1)',
+                                hoverBackgroundColor: 'rgba(255, 194, 32, 1)',
                             }
                         ]
                     },
@@ -368,15 +361,15 @@
                                     padding: 15,
                                     boxWidth: 12,
                                     boxHeight: 12,
-                                    color: '#f1f5f9'
+                                    color: '#374151'
                                 }
                             },
                             title: {
                                 display: true,
-                                text: 'Order Distribution by Shipping Speed',
+                                text: 'Quarterly Shipping Speed Distribution',
                                 font: { size: 15, weight: 'bold' },
                                 padding: 15,
-                                color: '#f1f5f9'
+                                color: '#1f2937'
                             },
                             tooltip: {
                                 callbacks: {
@@ -538,13 +531,13 @@
                                 display: true,
                                 text: '% of Orders',
                                 font: { weight: 'bold' },
-                                color: '#e2e8f0'
+                                color: '#6b7280'
                             },
                             grid: {
-                                color: 'rgba(255, 255, 255, 0.05)'
+                                color: 'rgba(0, 0, 0, 0.05)'
                             },
                             ticks: {
-                                color: '#cbd5e1',
+                                color: '#9ca3af',
                                 callback: function(value) {
                                     return value.toFixed(1) + '%';
                                 }
@@ -632,7 +625,7 @@
                                 padding: 10,
                                 boxWidth: 10,
                                 boxHeight: 10,
-                                color: '#f1f5f9'
+                                color: '#374151'
                             }
                         },
                         title: {
@@ -640,7 +633,7 @@
                             text: 'Quarterly Shipping Speed Distribution',
                             font: { size: 15, weight: 'bold' },
                             padding: 15,
-                            color: '#f1f5f9'
+                            color: '#1f2937'
                         },
                         tooltip: {
                             callbacks: {
@@ -659,7 +652,7 @@
                         x: {
                             stacked: false,
                             ticks: {
-                                color: '#cbd5e1',
+                                color: '#9ca3af',
                                 font: { weight: 'bold' }
                             },
                             grid: {
@@ -670,13 +663,13 @@
                             beginAtZero: true,
                             stacked: false,
                             ticks: {
-                                color: '#cbd5e1',
+                                color: '#9ca3af',
                                 callback: function(value) {
                                     return value.toFixed(1) + '%';
                                 }
                             },
                             grid: {
-                                color: 'rgba(255, 255, 255, 0.05)'
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         }
                     }
@@ -687,10 +680,11 @@
         function showMonthlyChart(monthName, monthData) {
             // Update active button
             document.querySelectorAll('.monthly-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-slate-700', 'text-slate-300');
+                btn.classList.remove('bg-[#0071dc]', 'text-white');
+                btn.classList.add('bg-gray-100', 'text-gray-700');
             });
-            document.querySelector(`[data-month="${monthName}"]`).classList.add('bg-blue-600', 'text-white');
+            document.querySelector(`[data-month="${monthName}"]`).classList.remove('bg-gray-100', 'text-gray-700');
+            document.querySelector(`[data-month="${monthName}"]`).classList.add('bg-[#0071dc]', 'text-white');
             
             const monthlyCtx = document.getElementById('monthlyChart');
             if (!monthlyCtx) return;
@@ -736,7 +730,7 @@
                                 padding: 15,
                                 boxWidth: 12,
                                 boxHeight: 12,
-                                color: '#f1f5f9'
+                                color: '#374151'
                             }
                         },
                         title: {
@@ -744,7 +738,7 @@
                             text: `${monthName} - Order Distribution by Shipping Speed`,
                             font: { size: 15, weight: 'bold' },
                             padding: 15,
-                            color: '#f1f5f9'
+                            color: '#1f2937'
                         },
                         tooltip: {
                             callbacks: {
@@ -766,13 +760,13 @@
                                 display: true,
                                 text: '% of Orders',
                                 font: { weight: 'bold' },
-                                color: '#e2e8f0'
+                                color: '#6b7280'
                             },
                             grid: {
-                                color: 'rgba(255, 255, 255, 0.05)'
+                                color: 'rgba(0, 0, 0, 0.05)'
                             },
                             ticks: {
-                                color: '#cbd5e1',
+                                color: '#9ca3af',
                                 callback: function(value) {
                                     return value.toFixed(1) + '%';
                                 }
@@ -783,13 +777,13 @@
                                 display: true,
                                 text: 'Shipping Speed',
                                 font: { weight: 'bold' },
-                                color: '#e2e8f0'
+                                color: '#6b7280'
                             },
                             grid: {
                                 display: false
                             },
                             ticks: {
-                                color: '#cbd5e1'
+                                color: '#9ca3af'
                             }
                         }
                     }
