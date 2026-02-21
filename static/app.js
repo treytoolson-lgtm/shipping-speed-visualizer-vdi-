@@ -282,7 +282,7 @@ function displayResults(data) {
     const sortedM = data.monthly_data ? sortMonths(Object.keys(data.monthly_data)) : [];
 
     results.innerHTML = `
-        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 card-hover fade-in">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 card-hover fade-in h-full flex flex-col">
             <h2 class="text-xl font-bold mb-2 text-wmt-gray-160">Results for PID: <span class="text-wmt-blue">${data.pid}</span></h2>
             <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span></p>
 
@@ -331,7 +331,7 @@ function displayResults(data) {
             </div>
 
             <!-- Overall -->
-            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
+            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm flex-grow">
                 <canvas id="shippingChart"></canvas>
             </div>
 
@@ -350,7 +350,7 @@ function displayResults(data) {
                         </div>
                     `).join('')}
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
+                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm flex-grow">
                     <canvas id="quarterlyChartMain"></canvas>
                 </div>
             </div>` : ''}
@@ -370,7 +370,7 @@ function displayResults(data) {
                         </div>
                     `).join('')}
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
+                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm flex-grow">
                     <canvas id="monthlyChart"></canvas>
                 </div>
             </div>` : ''}
