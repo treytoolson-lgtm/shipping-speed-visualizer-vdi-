@@ -34,9 +34,7 @@ static_path.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 # Initialize BigQuery connector
-# Set use_mock_data=True for demo mode, False to use real BigQuery
-# When you get BigQuery access, change this to: bq = BigQueryConnector(use_mock_data=False)
-bq = BigQueryConnector(use_mock_data=False)
+bq = BigQueryConnector()
 
 
 class ShippingSpeedRequest(BaseModel):
@@ -72,8 +70,7 @@ async def index():
 @app.get("/api/health")
 async def health():
     """Health check endpoint"""
-    mode = "DEMO MODE (Mock Data)" if bq.use_mock_data else "Production Mode (Real BigQuery - wmt-marketplace-analytics)"
-    return {"status": "ok", "message": f"Shipping Speed Visualizer is running! [{mode}]"}
+    return {"status": "ok", "message": "Shipping Speed Visualizer is running! [Production Mode]"}
 
 
 @app.post("/api/shipping-speed")
@@ -137,11 +134,10 @@ def get_shipping_speed(request: ShippingSpeedRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    mode = "🎬 DEMO MODE (Using Mock Data)" if bq.use_mock_data else "⚙️ Production Mode (Real BigQuery)"
 
     print("\n" + "="*80)
     print("🐾 Shipping Speed Visualizer")
-    print(f"{mode}")
+    print("⚙️ Production Mode (Real BigQuery)")
     print("Running on: http://localhost:5003/")
     print("="*80 + "\n")
 
