@@ -240,6 +240,31 @@ async function analyzeShippingSpeed() {
     }
 }
 
+function groupKeysByFY(keys, type) {
+    const sortedKeys = type === 'quarter' ? sortQuarters(keys) : sortMonths(keys);
+    const groups = {};
+    
+    sortedKeys.forEach(key => {
+        let fy;
+        if (type === 'quarter') {
+            // "Q1 FY2026" -> "FY2026"
+            fy = key.split(' ')[1];
+        } else {
+            // "Feb 2025" -> FY logic (Feb starts new FY)
+            const [mStr, yStr] = key.split(' ');
+            const y = parseInt(yStr);
+            const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(mStr) + 1;
+            // Feb (2) starts next FY in Walmart calendar
+            fy = `FY${m >= 2 ? y + 1 : y}`;
+        }
+        if (!groups[fy]) groups[fy] = [];
+        groups[fy].push(key);
+    });
+    
+    // Sort FYs descending (FY2026, FY2025...)
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+}
+
 function displayResults(data) {
     globalData = data;
     sortModeOn = false;
@@ -251,6 +276,10 @@ function displayResults(data) {
     const totalSff     = data.total_sff_orders;
     const hasSort      = !!(data.wfs_sort_data || data.sff_sort_data);
     const hasQuarterly = data.quarterly_data && Object.keys(data.quarterly_data).length > 0;
+    
+    // Pre-sort for finding active button
+    const sortedQ = hasQuarterly ? sortQuarters(Object.keys(data.quarterly_data)) : [];
+    const sortedM = data.monthly_data ? sortMonths(Object.keys(data.monthly_data)) : [];
 
     results.innerHTML = `
         <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200 card-hover fade-in">
@@ -308,11 +337,18 @@ function displayResults(data) {
 
             ${hasQuarterly ? `
             <div id="quarterly-view" class="hidden">
-                <div class="flex flex-wrap gap-2 mb-6">
-                    ${sortQuarters(Object.keys(data.quarterly_data)).map((q, i) =>
-                        `<button onclick="showQuarterlyChart('${q}')" data-quarter="${q}"
-                            class="quarterly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${i === 0 ? 'bg-wmt-blue text-white' : 'bg-gray-100 text-wmt-gray-160 hover:bg-gray-200'}">${q}</button>`
-                    ).join('')}
+                <div class="space-y-6 mb-6">
+                    ${groupKeysByFY(Object.keys(data.quarterly_data), 'quarter').map(([fy, keys]) => `
+                        <div>
+                            <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${keys.map(q => 
+                                    `<button onclick="showQuarterlyChart('${q}')" data-quarter="${q}"
+                                        class="quarterly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${q === sortedQ[0] ? 'bg-wmt-blue text-white' : 'bg-gray-100 text-wmt-gray-160 hover:bg-gray-200'}">${q}</button>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
                     <canvas id="quarterlyChartMain"></canvas>
@@ -321,11 +357,18 @@ function displayResults(data) {
 
             ${data.monthly_data ? `
             <div id="monthly-view" class="hidden">
-                <div class="flex flex-wrap gap-2 mb-6">
-                    ${sortMonths(Object.keys(data.monthly_data)).map((m, i) =>
-                        `<button onclick="showMonthlyChart('${m}')" data-month="${m}"
-                            class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${i === 0 ? 'bg-wmt-blue text-white' : 'bg-gray-100 text-wmt-gray-160 hover:bg-gray-200'}">${m}</button>`
-                    ).join('')}
+                 <div class="space-y-6 mb-6">
+                    ${groupKeysByFY(Object.keys(data.monthly_data), 'month').map(([fy, keys]) => `
+                        <div>
+                            <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${keys.map(m => 
+                                    `<button onclick="showMonthlyChart('${m}')" data-month="${m}"
+                                        class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${m === sortedM[0] ? 'bg-wmt-blue text-white' : 'bg-gray-100 text-wmt-gray-160 hover:bg-gray-200'}">${m}</button>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
                     <canvas id="monthlyChart"></canvas>
@@ -338,9 +381,9 @@ function displayResults(data) {
     setTimeout(() => {
         displayOverallChart(data);
         if (data.monthly_data && Object.keys(data.monthly_data).length > 0)
-            setTimeout(() => showMonthlyChart(sortMonths(Object.keys(data.monthly_data))[0]), 100);
+            setTimeout(() => showMonthlyChart(sortedM[0]), 100);
         if (data.quarterly_data && Object.keys(data.quarterly_data).length > 0)
-            setTimeout(() => showQuarterlyChart(sortQuarters(Object.keys(data.quarterly_data))[0]), 200);
+            setTimeout(() => showQuarterlyChart(sortedQ[0]), 200);
     }, 0);
 }
 
