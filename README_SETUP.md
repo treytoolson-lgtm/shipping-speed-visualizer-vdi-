@@ -2,80 +2,48 @@
 
 ## ✅ Current Status
 
-**Demo Mode is ACTIVE!** 🎬  
-The app is running with realistic mock data so you can see the full functionality.
+**Production Mode is ACTIVE!** ⚙️  
+The app queries live data from `wmt-cp-prod`.
 
 **Server Running On:** http://localhost:5003/
 
 ---
 
-## 🔗 BigQuery Access Request
+## 🔐 BigQuery Access Requirements
 
-When you're ready to use **real production data**, you'll need to request access to the `wmt-edw-prod` BigQuery project.
+To use this tool, you must have read access to the **Customer Promise** production data.
 
-### 📋 Main Documentation
-**[Access to Datasets/Tables in wmt-edw-prod](https://confluence.walmart.com/pages/viewpage.action?pageId=3070433988)**
+### 🔑 Required AD Group
+**`gcp-cp-prod-reader`**
 
-### 🔑 ServiceNow Access Request (Most Common)
-**[Request gcp-prod-ww-reader Access](https://walmartglobal.service-now.com/wm_sp?id=ticket&table=sc_req_item&sys_id=9223f8c4974cb690a6f33fb71153afe5)**
+This group grants read access to all tables in the `wmt-cp-prod` project, including the critical `e2e_fmt_cp.CTP` table.
 
-This will grant you read access to production BigQuery datasets including `wmt-edw-prod`.
+### 📝 How to Request Access
+1. Go to **[Request GCP Access via ServiceNow](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
+2. In the request form, ask for membership to:
+   - **AD Group:** `gcp-cp-prod-reader`
+3. Submit and wait for approval (usually automated or manager approval).
 
-### 📝 Steps to Request Access
-1. Click the ServiceNow link above
-2. Fill out the access request form
-3. In "Business Justification" mention you need read access to:
-   - Dataset: `WW_GEC_VM`
-   - Table: `FIN_MP_PYMT_TRANS`
-   - For shipping speed analysis
-4. Submit and wait for approval (usually 1-2 business days)
-
----
-
-## 🎬 Demo vs Production Mode
-
-### Switching Modes
-
-Edit `/Users/t0t0ech/Documents/shipping-speed-visualizer/main.py` line ~27:
-
-**DEMO MODE (Current):**
-```python
-bq = BigQueryConnector(use_mock_data=True)  # Uses realistic mock data
-```
-
-**PRODUCTION MODE (After BigQuery Access):**
-```python
-bq = BigQueryConnector(use_mock_data=False)  # Queries real wmt-edw-prod data
-```
-
-Then restart the server with Ctrl+C and run:
-```bash
-cd /Users/t0t0ech/Documents/shipping-speed-visualizer
-source .venv/bin/activate
-python main.py
-```
+*Note: You do NOT need to request special SEC Insider Trading clearance for this dataset.*
 
 ---
 
 ## 🏗️ Tech Stack
 
 - **Backend:** FastAPI (Python)
-- **Database:** Google BigQuery (wmt-edw-prod)
+- **Database:** Google BigQuery (`wmt-cp-prod.e2e_fmt_cp.CTP`)
 - **Frontend:** HTML5 + Chart.js
-- **Styling:** Tailwind CSS
-- **Data Structure:**
-  - **WFS**: Walmart Fulfillment Services (faster delivery)
-  - **SFF**: Seller Fulfills From (variable delivery times)
+- **Styling:** Tailwind CSS (Walmart Brand Colors)
 
 ---
 
 ## 📊 Data Analyzed
 
 For each seller (PID), you get:
-- **Order Count Distribution** by delivery speed (2-10 days)
+- **Unit Count Distribution** by actual transit days (1-10 days)
 - **WFS vs SFF Comparison**
-- **Total Orders** in the analysis period
-- **Analysis Period** (customizable, default 90 days)
+- **Sort vs Non-Sort Breakdown** (WFS Only)
+- **Fiscal Year Grouping** for monthly and quarterly trends
 
 ---
 
@@ -88,10 +56,11 @@ lsof -i :5003 | tail -n +2 | awk '{print $2}' | xargs kill -9
 ```
 
 ### Getting "BigQuery permission denied" error
-Your user account doesn't have the right permissions yet. This is expected until BigQuery access is approved.
+Your user account is likely not in the `gcp-cp-prod-reader` group yet. Please follow the access request steps above.
 
-### Charts not showing
-Make sure you have an internet connection for Chart.js library (loaded from CDN).
+### "No Data" for a PID
+- The tool checks both `SLR_ORG_ID` (Legacy) and `SRC_SLR_ORG_CD` (Partner ID).
+- Ensure the seller has valid marketplace (`MP`) orders in the last 12-24 months.
 
 ---
 
@@ -108,31 +77,10 @@ POST /api/shipping-speed
 Content-Type: application/json
 
 {
-  "pid": "10000002874",
-  "days_back": 90
+  "pid": "10001025026",
+  "days_back": 365
 }
 ```
-
-**Response:**
-```json
-{
-  "pid": "10000002874",
-  "wfs_data": { "2-day": 481, "3-day": 1164, ... },
-  "sff_data": { "2-day": 26, "3-day": 163, ... },
-  "total_wfs_orders": 7186,
-  "total_sff_orders": 3388,
-  "analysis_period": "Last 90 days (DEMO DATA)"
-}
-```
-
----
-
-## 🎯 Next Steps
-
-1. ✅ **Test the demo** at http://localhost:5003/
-2. 📋 **Request BigQuery access** using the ServiceNow link
-3. 🔄 **Switch to production mode** once access is approved
-4. 📊 **Analyze real seller shipping data!**
 
 ---
 

@@ -287,7 +287,7 @@ function displayResults(data) {
             <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span></p>
 
             <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-1 h-full bg-wmt-blue"></div>
                     <div class="text-wmt-gray-160 text-xs font-bold uppercase tracking-wider mb-1">WFS Units</div>
@@ -306,7 +306,7 @@ function displayResults(data) {
             </div>
 
             <!-- Legend + Sort Toggle -->
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div id="chartLegend" class="flex gap-6 flex-wrap">
                     <div class="flex items-center gap-2">
                         <div class="w-3 h-3 rounded-full" style="background:#0053e2"></div>
@@ -324,20 +324,20 @@ function displayResults(data) {
             </div>
 
             <!-- View Tabs -->
-            <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-1">
+            <div class="flex flex-wrap gap-2 mb-4 border-b border-gray-200 pb-1">
                 <button onclick="switchView('overall')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-wmt-blue border-b-2 border-wmt-blue" data-view="overall">Overall</button>
                 ${hasQuarterly ? `<button onclick="switchView('quarterly')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-gray-500 hover:text-wmt-blue border-b-2 border-transparent" data-view="quarterly">Quarterly</button>` : ''}
                 ${data.monthly_data ? `<button onclick="switchView('monthly')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-gray-500 hover:text-wmt-blue border-b-2 border-transparent" data-view="monthly">Monthly</button>` : ''}
             </div>
 
             <!-- Overall -->
-            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-8 shadow-sm">
+            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
                 <canvas id="shippingChart"></canvas>
             </div>
 
             ${hasQuarterly ? `
             <div id="quarterly-view" class="hidden">
-                <div class="space-y-6 mb-6">
+                <div class="space-y-4 mb-4">
                     ${groupKeysByFY(Object.keys(data.quarterly_data), 'quarter').map(([fy, keys]) => `
                         <div>
                             <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>
@@ -357,7 +357,7 @@ function displayResults(data) {
 
             ${data.monthly_data ? `
             <div id="monthly-view" class="hidden">
-                 <div class="space-y-6 mb-6">
+                 <div class="space-y-4 mb-4">
                     ${groupKeysByFY(Object.keys(data.monthly_data), 'month').map(([fy, keys]) => `
                         <div>
                             <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>

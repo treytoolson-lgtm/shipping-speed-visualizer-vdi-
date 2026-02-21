@@ -1,21 +1,34 @@
 # 🐾 Shipping Speed Visualizer
 
-A tool to visualize and analyze shipping speeds for WFS (Walmart Fulfilled) vs SFF (Seller Fulfilled) orders by seller PID over a 3-month rolling window.
+A tool to visualize and analyze shipping speeds for WFS (Walmart Fulfilled) vs SFF (Seller Fulfilled) orders by seller PID.
 
 ## Features
 
-✅ **Real-time Analysis**: Query BigQuery for actual shipping data
+✅ **Real-time Analysis**: Query BigQuery for actual shipping data from the CTP (Committed to Promise) table
 ✅ **WFS vs SFF Comparison**: Side-by-side bar charts comparing fulfillment types
-✅ **2-10 Day Breakdown**: Detailed distribution of shipping speeds
+✅ **Granular Breakdowns**: 1-10 day delivery speed distribution
+✅ **Sort vs Non-Sort**: Toggle to see WFS sortation breakdowns
 ✅ **Interactive UI**: Clean, responsive interface with Walmart branding
-✅ **Customizable Window**: Analyze 7 to 365 days of data
+✅ **Historical Views**: 12, 18, or 24-month rolling windows with Quarterly and Monthly drill-downs
 
 ## Prerequisites
 
 - Python 3.11+
 - `uv` package manager (comes with Code Puppy)
-- BigQuery access with credentials configured
-- Access to `wmt-edw-prod.WW_GEC_VM.FIN_MP_PYMT_TRANS` table
+- BigQuery access to `wmt-cp-prod` project (see Access section below)
+
+## 🔐 Access Requirements
+
+To use this tool, you need **read access** to the Customer Promise production data.
+
+**Required AD Group:** `gcp-cp-prod-reader`
+
+### How to Request Access
+1. Go to **[Request GCP Access via ServiceNow](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
+2. Request membership to the AD group: **`gcp-cp-prod-reader`**
+3. This grants read access to `wmt-cp-prod.e2e_fmt_cp.CTP`.
+
+*Note: You no longer need to request special SEC Insider Trading clearance for this dataset.*
 
 ## Setup
 
@@ -25,7 +38,7 @@ A tool to visualize and analyze shipping speeds for WFS (Walmart Fulfilled) vs S
 gcloud auth application-default login
 ```
 
-This will authenticate your local environment to access BigQuery.
+This authenticates your local environment to access BigQuery.
 
 ### 2. Install Dependencies
 
@@ -62,23 +75,24 @@ The application will be available at: **http://localhost:5003/**
 
 ## Usage
 
-1. **Enter PID**: Type a seller/partner ID (e.g., `123456`)
-2. **Set Analysis Window**: Choose how many days back to analyze (default: 90 days / 3 months)
+1. **Enter PID**: Type a seller/partner ID (e.g., `10001025026`)
+2. **Set Analysis Window**: Choose 12, 18, or 24 months
 3. **Click Analyze**: The tool queries BigQuery and displays results
 4. **View Results**:
-   - Summary stats (WFS orders, SFF orders, total orders)
-   - Interactive bar chart showing order count by shipping speed
-   - 2-day through 10-day delivery breakdowns
+   - Summary stats (WFS Units, SFF Units, Total Units)
+   - Sort/Non-Sort Toggle (WFS only)
+   - Interactive bar charts for Overall, Quarterly, and Monthly views
 
 ## Data Source
 
 All data comes from:
-- **Table**: `wmt-edw-prod.WW_GEC_VM.FIN_MP_PYMT_TRANS`
+- **Table**: `wmt-cp-prod.e2e_fmt_cp.CTP`
 - **Key Columns**:
-  - `PRTNR_SRC_ORG_CD`: Seller/Partner ID
-  - `FULFMT_TYPE_NM`: Fulfillment type (WFS or SFF)
-  - `ORDER_PLACED_DT`: Order placement date
-  - `DLVR_TS_UTC`: Delivery timestamp (UTC)
+  - `SLR_ORG_ID` / `SRC_SLR_ORG_CD`: Seller/Partner ID
+  - `FULFMT_TYPE`: 'MP' (Marketplace)
+  - `WFS_ENABLED_IND`: Distinguishes WFS vs SFF
+  - `CALENDAR_DAY_Actual_TNT_final`: Actual transit days
+  - `FC_Sort_Type`: Sort vs Non-Sort classification (WFS only)
 
 ## Architecture
 
@@ -92,7 +106,7 @@ All data comes from:
 - **Template**: HTML + Tailwind CSS
 - **Charts**: Chart.js
 - **Interactivity**: Vanilla JavaScript (fetch API)
-- **Colors**: lors (Blue #0053e2, Spark #ffc220)
+- **Colors**: Walmart Brand Colors (Blue #0053e2, Spark #ffc220)
 
 ## Project Structure
 
@@ -104,7 +118,8 @@ shipping-speed-visualizer/
 ├── run.sh                  # Startup script
 ├── README.md              # This file
 └── static/
-    └── index.html         # Frontend UI
+    ├── index.html         # Frontend UI structure
+    └── app.js             # Frontend logic & charts
 ```
 
 ## Troubleshooting
@@ -115,25 +130,15 @@ shipping-speed-visualizer/
 gcloud auth application-default login
 ```
 
+### "Access Denied: wmt-cp-prod"
+
+Ensure you have joined the `gcp-cp-prod-reader` AD group. See **Access Requirements** above.
+
 ### "No shipping data found for PID"
 
 - Verify the PID exists in the system
-- Check that orders were placed within the selected date range
-- Ensure the seller has both WFS and SFF order types
-
-### Dependencies installation fails
-
-Make sure you're using Walmart's PyPI index:
-
-```bash
-HTTP_PROXY=http://sysproxy.wal-mart.com:8080 \nHTTPS_PROXY=http://sysproxy.wal-mart.com:8080 \nuvicorn --version
-```
-
-## Performance Notes
-
-- BigQuery queries typically complete in 5-10 seconds
-- First query may be slightly slower due to table scan
-- Chart rendering is instant with Chart.js
+- Try checking if the PID is a Legacy ID vs Partner ID (the tool checks both, but verify your input)
+- Ensure the seller had orders in the selected date range
 
 ## Support
 
