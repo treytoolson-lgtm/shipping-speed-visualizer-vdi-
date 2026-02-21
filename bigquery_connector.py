@@ -156,7 +156,11 @@ class BigQueryConnector:
             FROM `{self.project}.{self.dataset_id}.{self.table_id}`
             WHERE
                 FULFMT_TYPE = 'MP'
-                AND CAST(SLR_ORG_ID AS STRING) IN UNNEST(@target_ids)
+                AND (
+                    CAST(SLR_ORG_ID AS STRING) IN UNNEST(@target_ids)
+                    OR
+                    SRC_SLR_ORG_CD IN UNNEST(@target_ids)
+                )
                 AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days_back} DAY)
                 AND ORDER_DATE <  CURRENT_DATE()
                 AND CALENDAR_DAY_Actual_TNT_final BETWEEN 1 AND 30
