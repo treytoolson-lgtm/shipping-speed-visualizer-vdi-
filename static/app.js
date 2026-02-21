@@ -282,26 +282,26 @@ function displayResults(data) {
     const sortedM = data.monthly_data ? sortMonths(Object.keys(data.monthly_data)) : [];
 
     results.innerHTML = `
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200 card-hover fade-in">
+        <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 card-hover fade-in">
             <h2 class="text-xl font-bold mb-2 text-wmt-gray-160">Results for PID: <span class="text-wmt-blue">${data.pid}</span></h2>
             <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span></p>
 
             <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm relative overflow-hidden">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-1 h-full bg-wmt-blue"></div>
                     <div class="text-wmt-gray-160 text-xs font-bold uppercase tracking-wider mb-1">WFS Units</div>
-                    <div class="text-2xl font-bold text-wmt-blue">${totalWfs.toLocaleString()}</div>
+                    <div class="text-xl font-bold text-wmt-blue">${totalWfs.toLocaleString()}</div>
                 </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm relative overflow-hidden">
+                <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-1 h-full bg-wmt-spark"></div>
                     <div class="text-wmt-gray-160 text-xs font-bold uppercase tracking-wider mb-1">SFF Units</div>
-                    <div class="text-2xl font-bold text-wmt-spark">${totalSff.toLocaleString()}</div>
+                    <div class="text-xl font-bold text-wmt-spark">${totalSff.toLocaleString()}</div>
                 </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm relative overflow-hidden">
+                <div class="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-1 h-full bg-wmt-green"></div>
                     <div class="text-wmt-gray-160 text-xs font-bold uppercase tracking-wider mb-1">Total Units</div>
-                    <div class="text-2xl font-bold text-wmt-green">${(totalWfs + totalSff).toLocaleString()}</div>
+                    <div class="text-xl font-bold text-wmt-green">${(totalWfs + totalSff).toLocaleString()}</div>
                 </div>
             </div>
 
@@ -331,13 +331,13 @@ function displayResults(data) {
             </div>
 
             <!-- Overall -->
-            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
+            <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
                 <canvas id="shippingChart"></canvas>
             </div>
 
             ${hasQuarterly ? `
             <div id="quarterly-view" class="hidden">
-                <div class="space-y-4 mb-4">
+                <div class="space-y-3 mb-3">
                     ${groupKeysByFY(Object.keys(data.quarterly_data), 'quarter').map(([fy, keys]) => `
                         <div>
                             <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>
@@ -350,14 +350,14 @@ function displayResults(data) {
                         </div>
                     `).join('')}
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
+                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
                     <canvas id="quarterlyChartMain"></canvas>
                 </div>
             </div>` : ''}
 
             ${data.monthly_data ? `
             <div id="monthly-view" class="hidden">
-                 <div class="space-y-4 mb-4">
+                 <div class="space-y-3 mb-3">
                     ${groupKeysByFY(Object.keys(data.monthly_data), 'month').map(([fy, keys]) => `
                         <div>
                             <h3 class="text-xs font-bold text-wmt-gray-160 uppercase tracking-wider mb-3 border-l-4 border-wmt-blue pl-2">${fy}</h3>
@@ -370,7 +370,7 @@ function displayResults(data) {
                         </div>
                     `).join('')}
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
+                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm">
                     <canvas id="monthlyChart"></canvas>
                 </div>
             </div>` : ''}
