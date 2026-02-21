@@ -109,7 +109,7 @@ class BigQueryConnector:
     # Mock Data (demo mode)
     # ------------------------------------------------------------------
 
-    def _generate_mock_data(self, days_back: int = 90) -> dict:
+    def _generate_mock_data(self, days_back: int = 365) -> dict:
         """Generate realistic mock shipping data for demo purposes."""
         random.seed(42)
 
@@ -236,7 +236,7 @@ class BigQueryConnector:
     # Main Query — CTP
     # ------------------------------------------------------------------
 
-    def get_shipping_speed_distribution(self, pid: str, days_back: int = 90) -> dict:
+    def get_shipping_speed_distribution(self, pid: str, days_back: int = 365) -> dict:
         """
         Get shipping speed distribution for a seller from CTP.
         Returns 1–10 day buckets broken down by WFS/SFF and Sort/Nonsort.

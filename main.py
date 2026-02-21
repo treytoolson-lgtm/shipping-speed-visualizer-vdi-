@@ -42,7 +42,7 @@ bq = BigQueryConnector(use_mock_data=False)
 class ShippingSpeedRequest(BaseModel):
     """Request model for shipping speed analysis"""
     pid: str
-    days_back: int = 90  # Default 3 months
+    days_back: int = 365  # Default 12 months
 
 
 class ShippingSpeedAnalysis(BaseModel):
