@@ -4,9 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shipping Speed Visualizer</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='%23ffc220' transform='translate(50,50)'><rect x='-4' y='-45' width='8' height='38' rx='4'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(60)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(120)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(180)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(240)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(300)'/></g><text x='50' y='62' font-family='sans-serif' font-weight='900' font-size='38' text-anchor='middle' fill='%230053e2' stroke='white' stroke-width='4' paint-order='stroke'>WFS</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'wmt-blue': '#0053e2',       // blue.100 (Primary Brand)
+                        'wmt-blue-light': '#6fa8f8', // blue ~50 (WFS Non-Sort)
+                        'wmt-spark': '#ffc220',      // spark.100 (Secondary Brand)
+                        'wmt-spark-light': '#ffd966',// spark ~50 (SFF Non-Sort)
+                        'wmt-red': '#ea1100',        // red.100 (Error)
+                        'wmt-green': '#2a8703',      // green.100 (Success)
+                        'wmt-black': '#000000',
+                        'wmt-gray-160': '#2e2f32',   // Text
+                        'wmt-gray-50': '#e3e4e5',    // Border
+                        'wmt-gray-10': '#f2f2f2',    // Subtle BG
+                    },
+                    fontFamily: {
+                        sans: ['Myriad Pro', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
         @keyframes fadeIn {
             from {
@@ -52,44 +77,70 @@
             height: 400px;
             padding: 1.5rem;
         }
+
+        /* Spark Animation */
+        @keyframes spark-breathe {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(0.6); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        .animate-spin-spark {
+            animation: spark-breathe 3s ease-in-out infinite;
+            transform-origin: center;
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900">
+<body class="bg-gray-100 min-h-screen text-wmt-gray-160 font-sans">
     <!-- Header -->
-    <header class="bg-[#0071dc] shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="flex items-center space-x-3">
-                <span class="text-4xl">📦</span>
-                <div>
-                    <h1 class="text-3xl font-bold">Shipping Speed Visualizer</h1>
-                    <p class="text-blue-100 text-sm">Compare WFS vs SFF shipping performance by seller</p>
+    <header class="bg-wmt-blue shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <svg class="h-12 w-12" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                        <g fill="#ffc220" transform="translate(50,50)">
+                            <rect x="-4" y="-45" width="8" height="38" rx="4"/>
+                            <rect x="-4" y="-45" width="8" height="38" rx="4" transform="rotate(60)"/>
+                            <rect x="-4" y="-45" width="8" height="38" rx="4" transform="rotate(120)"/>
+                            <rect x="-4" y="-45" width="8" height="38" rx="4" transform="rotate(180)"/>
+                            <rect x="-4" y="-45" width="8" height="38" rx="4" transform="rotate(240)"/>
+                            <rect x="-4" y="-45" width="8" height="38" rx="4" transform="rotate(300)"/>
+                        </g>
+                        <text x="50" y="62" font-family="sans-serif" font-weight="900" font-size="38" text-anchor="middle" fill="#0053e2" stroke="white" stroke-width="4" paint-order="stroke">WFS</text>
+                    </svg>
+                    <div>
+                        <h1 class="text-2xl font-bold text-white tracking-tight">Shipping Speed Visualizer</h1>
+                        <p class="text-white/90 text-sm font-medium">Compare WFS vs SFF shipping performance by seller</p>
+                    </div>
+                </div>
+                <div class="text-white/90 text-sm font-medium">
+                    Created by Trey Toolson
                 </div>
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Input Section -->
-        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-[#ffc220] card-hover fade-in mb-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-800">Enter Seller Details</h2>
-            <div id="errorMsg" class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-4 hidden"></div>
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200 card-hover fade-in mb-8">
+            <h2 class="text-xl font-bold mb-6 text-wmt-gray-160">Enter Seller Details</h2>
+            <div id="errorMsg" class="bg-red-50 border border-wmt-red text-wmt-red px-4 py-3 rounded-md mb-4 hidden text-sm font-medium"></div>
             <div class="flex flex-col sm:flex-row gap-4 items-end">
                 <div class="flex-1">
-                    <label for="pid" class="block text-sm font-semibold mb-2 text-gray-700">Seller PID</label>
+                    <label for="pid" class="block text-sm font-bold mb-2 text-wmt-gray-160">Seller PID</label>
                     <input
                         type="text"
                         id="pid"
-                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#0071dc] focus:ring-2 focus:ring-[#0071dc]/50 transition"
+                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 placeholder-gray-500 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium"
                         placeholder="Enter PID (e.g., 10000002874)"
                         required
                     />
                 </div>
-                <div class="w-full sm:w-40">
-                    <label for="time_period" class="block text-sm font-semibold mb-2 text-gray-700">Time Period</label>
+                <div class="w-full sm:w-48">
+                    <label for="time_period" class="block text-sm font-bold mb-2 text-wmt-gray-160">Time Period</label>
                     <select
                         id="time_period"
-                        class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:border-[#0071dc] focus:ring-2 focus:ring-[#0071dc]/50 transition"
+                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
                     >
                         <option value="30">1 Month</option>
                         <option value="90" selected>3 Months</option>
@@ -98,7 +149,7 @@
                         <option value="365">12 Months</option>
                     </select>
                 </div>
-                <button id="analyzeBtn" class="w-full sm:w-auto bg-[#0071dc] hover:bg-[#005ba8] active:bg-[#004780] text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl" onclick="analyzeShippingSpeed()"> 
+                <button id="analyzeBtn" class="w-full sm:w-auto bg-wmt-blue hover:bg-[#004dc1] active:bg-[#003d99] text-white font-bold py-2.5 px-8 rounded-full shadow-sm transition-all duration-200 text-sm tracking-wide flex items-center justify-center gap-2" onclick="analyzeShippingSpeed()"> 
                     Analyze
                 </button>
             </div>
@@ -106,8 +157,19 @@
 
         <!-- Loading Indicator -->
         <div id="loading" class="hidden text-center py-8">
-            <div class="spinner"></div>
-            <p class="text-slate-300">Fetching shipping data from BigQuery...</p>
+            <div class="mx-auto mb-4 flex justify-center">
+                <svg class="animate-spin-spark h-12 w-12 text-wmt-spark" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <g>
+                        <rect x="11" y="1" width="2" height="8" rx="1" />
+                        <rect x="11" y="1" width="2" height="8" rx="1" transform="rotate(60 12 12)" />
+                        <rect x="11" y="1" width="2" height="8" rx="1" transform="rotate(120 12 12)" />
+                        <rect x="11" y="1" width="2" height="8" rx="1" transform="rotate(180 12 12)" />
+                        <rect x="11" y="1" width="2" height="8" rx="1" transform="rotate(240 12 12)" />
+                        <rect x="11" y="1" width="2" height="8" rx="1" transform="rotate(300 12 12)" />
+                    </g>
+                </svg>
+            </div>
+            <p class="text-wmt-gray-160 font-medium">Fetching shipping data from BigQuery...</p>
         </div>
 
         <!-- Results Section -->
@@ -117,702 +179,10 @@
     <!-- Footer -->
     <footer class="border-t border-gray-300 bg-gray-100 py-6 mt-12">
         <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-600">
-            <p>Shipping Speed Visualizer • Powered by Code Puppy 📦</p>
+            <p>Shipping Speed Visualizer • Created by Trey Toolson</p>
         </div>
     </footer>
 
-    <script>
-        let chartInstance = null;
-        let monthlyChartInstance = null;
-        let quarterlyChartInstance = null;
-        let currentView = 'overall';
-        let globalMonthlyData = {};
-
-        function switchView(viewName) {
-            // Hide all views
-            document.getElementById('overall-view').classList.add('hidden');
-            const quarterlyView = document.getElementById('quarterly-view');
-            const monthlyView = document.getElementById('monthly-view');
-            if (quarterlyView) quarterlyView.classList.add('hidden');
-            if (monthlyView) monthlyView.classList.add('hidden');
-            
-            // Remove active state from all tabs
-            document.querySelectorAll('.view-tab').forEach(tab => {
-                tab.classList.remove('text-[#0071dc]', 'border-b-[#0071dc]', 'border-b-4');
-                tab.classList.add('text-gray-600', 'border-b-transparent');
-            });
-            
-            // Show selected view
-            if (viewName === 'overall') {
-                document.getElementById('overall-view').classList.remove('hidden');
-            } else if (viewName === 'quarterly' && quarterlyView) {
-                quarterlyView.classList.remove('hidden');
-            } else if (viewName === 'monthly' && monthlyView) {
-                monthlyView.classList.remove('hidden');
-            }
-            
-            // Set active tab style
-            const activeTab = document.querySelector(`[data-view="${viewName}"]`);
-            activeTab.classList.remove('text-gray-600', 'border-b-transparent');
-            activeTab.classList.add('text-[#0071dc]', 'border-b-4', 'border-b-[#0071dc]');
-            
-            currentView = viewName;
-        }
-
-        async function analyzeShippingSpeed() {
-            const pid = document.getElementById('pid').value.trim();
-            const daysBack = parseInt(document.getElementById('time_period').value);
-            const errorMsg = document.getElementById('errorMsg');
-            const loading = document.getElementById('loading');
-            const results = document.getElementById('results');
-            const analyzeBtn = document.getElementById('analyzeBtn');
-
-            // Validation
-            if (!pid) {
-                errorMsg.textContent = 'Please enter a PID';
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-
-            // Reset UI
-            errorMsg.classList.add('hidden');
-            results.innerHTML = '';
-            loading.classList.remove('hidden');
-            analyzeBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/shipping-speed', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        pid: pid,
-                        days_back: daysBack
-                    })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.detail || 'Failed to fetch data');
-                }
-
-                loading.classList.add('hidden');
-                displayResults(data);
-
-            } catch (error) {
-                loading.classList.add('hidden');
-                errorMsg.textContent = `Error: ${error.message}`;
-                errorMsg.classList.remove('hidden');
-                console.error('Error:', error);
-            } finally {
-                analyzeBtn.disabled = false;
-            }
-        }
-
-        function displayResults(data) {
-            // Store monthly data globally for button clicks
-            if (data.monthly_data) {
-                globalMonthlyData = data.monthly_data;
-            }
-            
-            const results = document.getElementById('results');
-            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
-
-            const totalWfs = data.total_wfs_orders;
-            const totalSff = data.total_sff_orders;
-            const grandTotal = totalWfs + totalSff;
-            
-            // Calculate percentages
-            const wfsValues = labels.map(label => {
-                const count = data.wfs_data[label] || 0;
-                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
-            });
-            const sffValues = labels.map(label => {
-                const count = data.sff_data[label] || 0;
-                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
-            });
-            
-            // Check if we have quarterly data (for 12 months view)
-            const hasQuarterlyData = data.quarterly_data && Object.keys(data.quarterly_data).length > 0;
-
-            results.innerHTML = `
-                <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-[#ffc220] card-hover fade-in">
-                    <h2 class="text-2xl font-bold mb-2 text-gray-800">Results for PID: <span class="text-[#0071dc]">${data.pid}</span></h2>
-                    <p class="text-gray-600 text-sm mb-6">📅 Date Range: <span class="text-gray-800 font-semibold">${data.date_range}</span></p>
-                    
-                    <!-- Stats Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                        <div class="bg-gradient-to-br from-blue-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-[#0071dc]">
-                            <div class="text-gray-600 text-sm font-semibold uppercase">WFS Orders</div>
-                            <div class="text-2xl font-bold text-[#0071dc] mt-2">${totalWfs.toLocaleString()}</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-yellow-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-[#ffc220]">
-                            <div class="text-gray-600 text-sm font-semibold uppercase">SFF Orders</div>
-                            <div class="text-2xl font-bold text-[#ffc220] mt-2">${totalSff.toLocaleString()}</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-green-50 to-white rounded-lg p-4 border border-gray-200 border-l-4 border-l-green-500">
-                            <div class="text-gray-600 text-sm font-semibold uppercase">Total Orders</div>
-                            <div class="text-2xl font-bold text-green-600 mt-2">${(totalWfs + totalSff).toLocaleString()}</div>
-                        </div>
-                    </div>
-
-                    <!-- Legend -->
-                    <div class="flex gap-6 justify-center mb-6 flex-wrap">
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 bg-[#0071dc] rounded"></div>
-                            <span class="text-gray-700">WFS (Walmart Fulfilled)</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 bg-[#ffc220] rounded"></div>
-                            <span class="text-gray-700">SFF (Seller Fulfilled)</span>
-                        </div>
-                    </div>
-
-                    <!-- View Tabs/Buttons -->
-                    <div class="flex flex-wrap gap-2 mb-6 border-b-2 border-gray-300 pb-2">
-                        <button onclick="switchView('overall')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all active text-[#0071dc] border-b-4 border-[#0071dc]" data-view="overall">
-                            📊 Overall
-                        </button>
-                        ${data.quarterly_data ? `
-                            <button onclick="switchView('quarterly')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all text-gray-600 hover:text-[#0071dc] border-b-4 border-transparent" data-view="quarterly">
-                                📅 Quarterly
-                            </button>
-                        ` : ''}
-                        ${data.monthly_data ? `
-                            <button onclick="switchView('monthly')" class="view-tab px-4 py-2 rounded-t-lg font-semibold transition-all text-gray-600 hover:text-[#0071dc] border-b-4 border-transparent" data-view="monthly">
-                                📆 Monthly
-                            </button>
-                        ` : ''}
-                    </div>
-
-                    <!-- Overall Chart -->
-                    <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-8 shadow-sm">
-                        <canvas id="shippingChart"></canvas>
-                    </div>
-                    
-                    ${data.quarterly_data ? `
-                        <!-- Quarterly View -->
-                        <div id="quarterly-view" class="hidden">
-                            <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
-                                <canvas id="quarterlyChartMain"></canvas>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    ${data.monthly_data ? `
-                        <!-- Monthly View -->
-                        <div id="monthly-view" class="hidden">
-                            <div class="flex flex-wrap gap-2 mb-6">
-                                ${Object.keys(data.monthly_data).map((month, idx) => `
-                                    <button 
-                                        onclick="showMonthlyChart('${month}')" 
-                                        class="monthly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${idx === 0 ? 'bg-[#0071dc] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
-                                        data-month="${month}"
-                                    >
-                                        ${month}
-                                    </button>
-                                `).join('')}
-                            </div>
-                            <div class="bg-white rounded-lg border border-gray-200 chart-container mb-6 shadow-sm">
-                                <canvas id="monthlyChart"></canvas>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-
-                </div>
-            `;
-
-            // Initialize chart
-            setTimeout(() => {
-                const ctx = document.getElementById('shippingChart');
-                if (chartInstance) {
-                    chartInstance.destroy();
-                }
-                chartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'WFS (Walmart Fulfilled)',
-                                data: wfsValues,
-                                backgroundColor: 'rgba(0, 113, 220, 0.8)',
-                                borderColor: 'rgb(0, 113, 220)',
-                                borderWidth: 2,
-                                borderRadius: 6,
-                                hoverBackgroundColor: 'rgba(0, 113, 220, 1)',
-                            },
-                            {
-                                label: 'SFF (Seller Fulfilled)',
-                                data: sffValues,
-                                backgroundColor: 'rgba(255, 194, 32, 0.8)',
-                                borderColor: 'rgb(255, 194, 32)',
-                                borderWidth: 2,
-                                borderRadius: 6,
-                                hoverBackgroundColor: 'rgba(255, 194, 32, 1)',
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    font: { size: 13, weight: 'bold' },
-                                    padding: 15,
-                                    boxWidth: 12,
-                                    boxHeight: 12,
-                                    color: '#374151'
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Quarterly Shipping Speed Distribution',
-                                font: { size: 15, weight: 'bold' },
-                                padding: 15,
-                                color: '#1f2937'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        label += context.parsed.y.toFixed(2) + '%';
-                                        return label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: '% of Orders',
-                                    font: { weight: 'bold' },
-                                    color: '#e2e8f0'
-                                },
-                                grid: {
-                                    color: 'rgba(255, 255, 255, 0.05)'
-                                },
-                                ticks: {
-                                    color: '#cbd5e1',
-                                    callback: function(value) {
-                                        return value.toFixed(1) + '%';
-                                    }
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Shipping Speed',
-                                    font: { weight: 'bold' },
-                                    color: '#e2e8f0'
-                                },
-                                grid: {
-                                    display: false
-                                },
-                                ticks: {
-                                    color: '#cbd5e1'
-                                }
-                            }
-                        }
-                    }
-                });
-                
-                // Initialize monthly chart if data exists
-                if (data.monthly_data && Object.keys(data.monthly_data).length > 0) {
-                    setTimeout(() => {
-                        const firstMonth = Object.keys(data.monthly_data)[0];
-                        showMonthlyChart(firstMonth);
-                    }, 100);
-                }
-                
-                // Initialize quarterly chart if data exists
-                if (data.quarterly_data && Object.keys(data.quarterly_data).length > 0) {
-                    setTimeout(() => {
-                        initializeQuarterlyChartMain(data.quarterly_data);
-                    }, 200);
-                }
-            }, 0);
-        }
-        
-        function initializeQuarterlyChart(quarterlyData) {
-            const quarterlyCtx = document.getElementById('quarterlyChart');
-            if (!quarterlyCtx) return;
-            
-            if (quarterlyChartInstance) {
-                quarterlyChartInstance.destroy();
-            }
-            
-            // Sort quarters chronologically
-            const quarterOrder = ['Q1 FY2025', 'Q2 FY2025', 'Q3 FY2025', 'Q4 FY2025', 'Q1 FY2026', 'Q2 FY2026', 'Q3 FY2026', 'Q4 FY2026'];
-            const sortedQuarters = Object.keys(quarterlyData).sort((a, b) => {
-                return quarterOrder.indexOf(a) - quarterOrder.indexOf(b);
-            });
-            
-            // Calculate grand total for percentages
-            let grandTotal = 0;
-            sortedQuarters.forEach(q => {
-                grandTotal += quarterlyData[q].wfs + quarterlyData[q].sff;
-            });
-            
-            const wfsQuarterlyValues = sortedQuarters.map(q => 
-                grandTotal > 0 ? (quarterlyData[q].wfs / grandTotal) * 100 : 0
-            );
-            const sffQuarterlyValues = sortedQuarters.map(q => 
-                grandTotal > 0 ? (quarterlyData[q].sff / grandTotal) * 100 : 0
-            );
-            
-            quarterlyChartInstance = new Chart(quarterlyCtx, {
-                type: 'bar',
-                data: {
-                    labels: sortedQuarters,
-                    datasets: [
-                        {
-                            label: 'WFS (Walmart Fulfilled)',
-                            data: wfsQuarterlyValues,
-                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                            borderColor: 'rgb(59, 130, 246)',
-                            borderWidth: 2,
-                            borderRadius: 6,
-                            hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
-                        },
-                        {
-                            label: 'SFF (Seller Fulfilled)',
-                            data: sffQuarterlyValues,
-                            backgroundColor: 'rgba(234, 179, 8, 0.8)',
-                            borderColor: 'rgb(234, 179, 8)',
-                            borderWidth: 2,
-                            borderRadius: 6,
-                            hoverBackgroundColor: 'rgba(234, 179, 8, 1)',
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                font: { size: 13, weight: 'bold' },
-                                padding: 15,
-                                boxWidth: 12,
-                                boxHeight: 12,
-                                color: '#f1f5f9'
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Order Distribution by Walmart Fiscal Quarter',
-                            font: { size: 15, weight: 'bold' },
-                            padding: 15,
-                            color: '#f1f5f9'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    label += context.parsed.y.toFixed(2) + '%';
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '% of Orders',
-                                font: { weight: 'bold' },
-                                color: '#6b7280'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            },
-                            ticks: {
-                                color: '#9ca3af',
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                }
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Fiscal Quarter',
-                                font: { weight: 'bold' },
-                                color: '#e2e8f0'
-                            },
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                color: '#cbd5e1'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        function initializeQuarterlyChartMain(quarterlyData) {
-            // Initialize quarterly view chart showing shipping speed breakdown by quarter
-            const quarterlyCtx = document.getElementById('quarterlyChartMain');
-            if (!quarterlyCtx) return;
-            
-            if (quarterlyChartInstance) {
-                quarterlyChartInstance.destroy();
-            }
-            
-            const sortedQuarters = Object.keys(quarterlyData).sort();
-            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
-            
-            // Calculate percentages for each quarter
-            const quarterlyDataBySpeed = {};
-            labels.forEach(label => {
-                quarterlyDataBySpeed[label] = sortedQuarters.map(q => {
-                    const quarter = quarterlyData[q];
-                    const grandTotal = quarter.wfs + quarter.sff;
-                    const count = quarter[label] || 0;
-                    return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
-                });
-            });
-            
-            // Create datasets for each shipping speed
-            const colors = [
-                'rgba(59, 130, 246, 0.8)',    // 2-day blue
-                'rgba(99, 102, 241, 0.8)',    // 3-day indigo
-                'rgba(139, 92, 246, 0.8)',    // 4-day purple
-                'rgba(168, 85, 247, 0.8)',    // 5-day fuchsia
-                'rgba(236, 72, 153, 0.8)',    // 6-day pink
-                'rgba(249, 115, 22, 0.8)',    // 7-day orange
-                'rgba(234, 179, 8, 0.8)',     // 8-day yellow
-                'rgba(34, 197, 94, 0.8)',     // 9-day green
-                'rgba(20, 184, 166, 0.8)',    // 10-day teal
-            ];
-            
-            const datasets = labels.map((label, idx) => ({
-                label: label,
-                data: quarterlyDataBySpeed[label],
-                backgroundColor: colors[idx],
-                borderColor: colors[idx].replace('0.8', '1'),
-                borderWidth: 2,
-                borderRadius: 4,
-            }));
-            
-            quarterlyChartInstance = new Chart(quarterlyCtx, {
-                type: 'bar',
-                data: {
-                    labels: sortedQuarters,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'x',
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                font: { size: 11, weight: '600' },
-                                padding: 10,
-                                boxWidth: 10,
-                                boxHeight: 10,
-                                color: '#374151'
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Quarterly Shipping Speed Distribution',
-                            font: { size: 15, weight: 'bold' },
-                            padding: 15,
-                            color: '#1f2937'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    label += context.parsed.y.toFixed(2) + '%';
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: false,
-                            ticks: {
-                                color: '#9ca3af',
-                                font: { weight: 'bold' }
-                            },
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            stacked: false,
-                            ticks: {
-                                color: '#9ca3af',
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        function showMonthlyChart(monthName) {
-            // Get data from global variable
-            const monthData = globalMonthlyData[monthName];
-            if (!monthData) {
-                console.error('No data found for month:', monthName);
-                return;
-            }
-            
-            // Update active button
-            document.querySelectorAll('.monthly-btn').forEach(btn => {
-                btn.classList.remove('bg-[#0071dc]', 'text-white');
-                btn.classList.add('bg-gray-100', 'text-gray-700');
-            });
-            const activeBtn = document.querySelector(`[data-month="${monthName}"]`);
-            if (activeBtn) {
-                activeBtn.classList.remove('bg-gray-100', 'text-gray-700');
-                activeBtn.classList.add('bg-[#0071dc]', 'text-white');
-            }
-            
-            const monthlyCtx = document.getElementById('monthlyChart');
-            if (!monthlyCtx) return;
-            
-            if (monthlyChartInstance) {
-                monthlyChartInstance.destroy();
-            }
-            
-            // Extract shipping speed data
-            const labels = ['2-day', '3-day', '4-day', '5-day', '6-day', '7-day', '8-day', '9-day', '10-day'];
-            const grandTotal = monthData.wfs + monthData.sff;
-            
-            const wfsValues = labels.map(label => {
-                const count = monthData[label] || 0;
-                return grandTotal > 0 ? (count / grandTotal) * 100 : 0;
-            });
-            const sffValues = labels.map(label => 0); // For monthly, we're showing the individual month data
-            
-            monthlyChartInstance = new Chart(monthlyCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Orders',
-                            data: wfsValues,
-                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                            borderColor: 'rgb(59, 130, 246)',
-                            borderWidth: 2,
-                            borderRadius: 6,
-                            hoverBackgroundColor: 'rgba(59, 130, 246, 1)',
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                font: { size: 13, weight: 'bold' },
-                                padding: 15,
-                                boxWidth: 12,
-                                boxHeight: 12,
-                                color: '#374151'
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: `${monthName} - Order Distribution by Shipping Speed`,
-                            font: { size: 15, weight: 'bold' },
-                            padding: 15,
-                            color: '#1f2937'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    label += context.parsed.y.toFixed(2) + '%';
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '% of Orders',
-                                font: { weight: 'bold' },
-                                color: '#6b7280'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            },
-                            ticks: {
-                                color: '#9ca3af',
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                }
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Shipping Speed',
-                                font: { weight: 'bold' },
-                                color: '#6b7280'
-                            },
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                color: '#9ca3af'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Allow Enter key to submit
-        document.getElementById('pid').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                analyzeShippingSpeed();
-            }
-        });
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>

@@ -36,7 +36,7 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 # Initialize BigQuery connector
 # Set use_mock_data=True for demo mode, False to use real BigQuery
 # When you get BigQuery access, change this to: bq = BigQueryConnector(use_mock_data=False)
-bq = BigQueryConnector(use_mock_data=True)
+bq = BigQueryConnector(use_mock_data=False)
 
 
 class ShippingSpeedRequest(BaseModel):
@@ -50,6 +50,10 @@ class ShippingSpeedAnalysis(BaseModel):
     pid: str
     wfs_data: dict
     sff_data: dict
+    wfs_sort_data: dict = None
+    wfs_nonsort_data: dict = None
+    sff_sort_data: dict = None
+    sff_nonsort_data: dict = None
     total_wfs_orders: int
     total_sff_orders: int
     analysis_period: str
@@ -68,7 +72,7 @@ async def index():
 @app.get("/api/health")
 async def health():
     """Health check endpoint"""
-    mode = "DEMO MODE (Mock Data)" if bq.use_mock_data else "Production Mode (Real BigQuery)"
+    mode = "DEMO MODE (Mock Data)" if bq.use_mock_data else "Production Mode (Real BigQuery - wmt-marketplace-analytics)"
     return {"status": "ok", "message": f"Shipping Speed Visualizer is running! [{mode}]"}
 
 
@@ -145,5 +149,5 @@ if __name__ == "__main__":
         "main:app",
         host="127.0.0.1",
         port=5003,
-        reload=False
+        reload=True
     )

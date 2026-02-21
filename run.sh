@@ -42,4 +42,4 @@ echo ""
 echo "Press CTRL+C to stop the server"
 echo ""
 
-python main.py
+.venv/bin/python main.py
