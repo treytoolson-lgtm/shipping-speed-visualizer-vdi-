@@ -51,15 +51,12 @@ function buildDatasets(wfsBk, sffBk, wfsSortBk, wfsNonsortBk, sffSortBk, sffNons
               ...barOpts(COLORS.sffSortBg, COLORS.sffSortHover) },
         ];
     }
+    // Sort Mode: Show ONLY WFS breakdown (since SFF sort data is unavailable)
     return [
         { label: 'WFS — Sort',     data: vals(wfsSortBk  || {}, wfsSortTotal),
           ...barOpts(COLORS.wfsSortBg,    COLORS.wfsSortHover) },
         { label: 'WFS — Non-Sort', data: vals(wfsNonsortBk || {}, wfsNsTotal),
           ...barOpts(COLORS.wfsNonsortBg, COLORS.wfsNonsortHover) },
-        { label: 'SFF — Sort',     data: vals(sffSortBk  || {}, sffSortTotal),
-          ...barOpts(COLORS.sffSortBg,    COLORS.sffSortHover) },
-        { label: 'SFF — Non-Sort', data: vals(sffNonsortBk || {}, sffNsTotal),
-          ...barOpts(COLORS.sffNonsortBg, COLORS.sffNonsortHover) },
     ];
 }
 
@@ -146,8 +143,6 @@ function refreshLegend() {
         ? [
             { color: COLORS.wfsSortBg,    label: 'WFS — Sort' },
             { color: COLORS.wfsNonsortBg, label: 'WFS — Non-Sort' },
-            { color: COLORS.sffSortBg,    label: 'SFF — Sort' },
-            { color: COLORS.sffNonsortBg, label: 'SFF — Non-Sort' },
           ]
         : [
             { color: COLORS.wfsSortBg, label: 'WFS (Walmart Fulfilled)' },
