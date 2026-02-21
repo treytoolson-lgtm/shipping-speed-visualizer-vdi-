@@ -64,8 +64,10 @@ class BigQueryConnector:
         """Lazy-initialize BigQuery client."""
         if self.client is None:
             try:
+                # Explicitly set the billing project to wmt-marketplace-analytics
+                # We read from wmt-cp-prod, but must bill to our own project
                 self.client = bigquery.Client(project="wmt-marketplace-analytics")
-                logger.info("BigQuery client initialized")
+                logger.info("BigQuery client initialized with billing project: wmt-marketplace-analytics")
             except Exception as e:
                 logger.error(f"Failed to initialize BigQuery client: {e}")
                 raise
