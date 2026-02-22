@@ -64,12 +64,15 @@ class BigQueryConnector:
         """Lazy-initialize BigQuery client."""
         if self.client is None:
             try:
-                # Explicitly set the billing project to wmt-marketplace-analytics
-                # We read from wmt-cp-prod, but must bill to our own project
-                self.client = bigquery.Client(project="wmt-marketplace-analytics")
-                logger.info("BigQuery client initialized with billing project: wmt-marketplace-analytics")
+                # Use the environment's default project (from gcloud config)
+                # This avoids 403 errors if the user isn't in wmt-marketplace-analytics
+                self.client = bigquery.Client()
+                logger.info(f"BigQuery client initialized with billing project: {self.client.project}")
             except Exception as e:
                 logger.error(f"Failed to initialize BigQuery client: {e}")
+                print("\n[ERROR] Could not determine a default Google Cloud project.")
+                print("Please run: gcloud config set project YOUR_PROJECT_ID")
+                print("Example: gcloud config set project wmt-analysis-userid\n")
                 raise
         return self.client
 

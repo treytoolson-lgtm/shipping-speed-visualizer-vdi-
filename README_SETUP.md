@@ -11,20 +11,19 @@ The app queries live data from `wmt-cp-prod`.
 
 ## 🔐 BigQuery Access Requirements
 
-To use this tool, you must have read access to the **Customer Promise** production data.
+To use this tool, you need two specific AD groups: one to **see** the data, and one to **run** the query.
 
-### 🔑 Required AD Group
-**`gcp-cp-prod-reader`**
+### 1. Data Access (Reader)
+**Group:** `gcp-cp-prod-reader`
+*   **Purpose:** Allows you to read the shipping data tables (`wmt-cp-prod`).
+*   **[Request Access Here](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
 
-This group grants read access to all tables in the `wmt-cp-prod` project, including the critical `e2e_fmt_cp.CTP` table.
+### 2. Query Access (Job User)
+**Group:** `gcp-marketplace-analytics-users`
+*   **Purpose:** Allows you to execute queries in the analytics project (`wmt-marketplace-analytics`).
+*   **Request via:** Modify Group in ServiceNow.
 
-### 📝 How to Request Access
-1. Go to **[Request GCP Access via ServiceNow](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
-2. In the request form, ask for membership to:
-   - **AD Group:** `gcp-cp-prod-reader`
-3. Submit and wait for approval (usually automated or manager approval).
-
-*Note: You do NOT need to request special SEC Insider Trading clearance for this dataset.*
+*Note: You do NOT need to request special SEC Insider Trading clearance for the data access (`gcp-cp-prod-reader`).*
 
 ---
 
@@ -44,6 +43,7 @@ For each seller (PID), you get:
 - **WFS vs SFF Comparison**
 - **Sort vs Non-Sort Breakdown** (WFS Only)
 - **Fiscal Year Grouping** for monthly and quarterly trends
+- **Program Indicators** for ICC and ITS participation
 
 ---
 
@@ -56,7 +56,9 @@ lsof -i :5003 | tail -n +2 | awk '{print $2}' | xargs kill -9
 ```
 
 ### Getting "BigQuery permission denied" error
-Your user account is likely not in the `gcp-cp-prod-reader` group yet. Please follow the access request steps above.
+Check which permission is missing:
+- If it mentions `wmt-cp-prod`, you need `gcp-cp-prod-reader`.
+- If it mentions `wmt-marketplace-analytics`, you need `gcp-marketplace-analytics-users`.
 
 ### "No Data" for a PID
 - The tool checks both `SLR_ORG_ID` (Legacy) and `SRC_SLR_ORG_CD` (Partner ID).

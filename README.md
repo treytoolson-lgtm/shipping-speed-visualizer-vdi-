@@ -8,6 +8,7 @@ A tool to visualize and analyze shipping speeds for WFS (Walmart Fulfilled) vs S
 ✅ **WFS vs SFF Comparison**: Side-by-side bar charts comparing fulfillment types
 ✅ **Granular Breakdowns**: 1-10 day delivery speed distribution
 ✅ **Sort vs Non-Sort**: Toggle to see WFS sortation breakdowns
+✅ **Program Detection**: Badges for ICC (Internal Consolidation) and ITS (Import) sellers
 ✅ **Interactive UI**: Clean, responsive interface with Walmart branding
 ✅ **Historical Views**: 12, 18, or 24-month rolling windows with Quarterly and Monthly drill-downs
 
@@ -15,20 +16,21 @@ A tool to visualize and analyze shipping speeds for WFS (Walmart Fulfilled) vs S
 
 - Python 3.11+
 - `uv` package manager (comes with Code Puppy)
-- BigQuery access to `wmt-cp-prod` project (see Access section below)
+- BigQuery access (see below)
 
 ## 🔐 Access Requirements
 
-To use this tool, you need **read access** to the Customer Promise production data.
+To use this tool, you need two types of access: **Reader** (to see the data) and **Job User** (to run the query).
 
-**Required AD Group:** `gcp-cp-prod-reader`
+### 1. Data Access (Reader)
+**Required Group:** `gcp-cp-prod-reader`
+*   Grants read access to the shipping data (`wmt-cp-prod`).
+*   **[Request here](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
 
-### How to Request Access
-1. Go to **[Request GCP Access via ServiceNow](https://walmartglobal.service-now.com/wm_sp?id=sc_cat_item_guide&sys_id=222d77a3db8a634832af7f698c9619dc)**
-2. Request membership to the AD group: **`gcp-cp-prod-reader`**
-3. This grants read access to `wmt-cp-prod.e2e_fmt_cp.CTP`.
-
-*Note: You no longer need to request special SEC Insider Trading clearance for this dataset.*
+### 2. Query Access (Billing)
+**Required Group:** `gcp-marketplace-analytics-users`
+*   Allows you to *execute* queries in the analytics project (`wmt-marketplace-analytics`).
+*   *Note: If you already have query access through another team project (e.g., WFS Analytics), that may also work.*
 
 ## Setup
 
@@ -81,6 +83,7 @@ The application will be available at: **http://localhost:5003/**
 4. **View Results**:
    - Summary stats (WFS Units, SFF Units, Total Units)
    - Sort/Non-Sort Toggle (WFS only)
+   - Program Indicators (ICC / ITS)
    - Interactive bar charts for Overall, Quarterly, and Monthly views
 
 ## Data Source
@@ -132,7 +135,11 @@ gcloud auth application-default login
 
 ### "Access Denied: wmt-cp-prod"
 
-Ensure you have joined the `gcp-cp-prod-reader` AD group. See **Access Requirements** above.
+Ensure you have joined `gcp-cp-prod-reader`.
+
+### "Access Denied: wmt-marketplace-analytics"
+
+Ensure you have joined `gcp-marketplace-analytics-users` to run queries.
 
 ### "No shipping data found for PID"
 
