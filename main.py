@@ -46,6 +46,7 @@ class ShippingSpeedRequest(BaseModel):
 class ShippingSpeedAnalysis(BaseModel):
     """Response model for shipping speed analysis"""
     pid: str
+    programs: list = []
     wfs_data: dict
     sff_data: dict
     wfs_sort_data: dict = None

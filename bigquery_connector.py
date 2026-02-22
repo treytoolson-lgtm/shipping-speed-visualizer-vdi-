@@ -122,6 +122,50 @@ class BigQueryConnector:
 
         return quarterly_data
 
+    def check_seller_programs(self, pid: str, legacy_id: str) -> list:
+        """
+        Check if the seller is in ICC (Internal Consolidation Center) or ITS/Import programs.
+        """
+        programs = []
+        client = self.get_client()
+        
+        # 1. Check ICC (NAPO_RAMP) using Legacy ID (VP_ID)
+        if legacy_id:
+            try:
+                icc_query = f"""
+                SELECT COUNT(*) as cnt 
+                FROM `wmt-cp-prod.ICC.NAPO_RAMP` 
+                WHERE CAST(VP_ID AS STRING) = @legacy_id
+                """
+                job_config = bigquery.QueryJobConfig(
+                    query_parameters=[bigquery.ScalarQueryParameter("legacy_id", "STRING", legacy_id)]
+                )
+                # Bill to marketplace analytics
+                results = list(client.query(icc_query, job_config=job_config).result())
+                if results and results[0].cnt > 0:
+                    programs.append("ICC")
+            except Exception as e:
+                logger.warning(f"Error checking ICC program: {e}")
+
+        # 2. Check ITS / CN Inbound using Partner ID
+        try:
+            # Using the table found by explorer for CN Inbound (proxy for ITS/Import)
+            its_query = f"""
+            SELECT COUNT(*) as cnt
+            FROM `wmt-marketplace-analytics.MP_SELLER_RISK.y0d03t1_cn_inbound_allow_seller`
+            WHERE CAST(partner_id AS STRING) = @pid
+            """
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("pid", "STRING", pid)]
+            )
+            results = list(client.query(its_query, job_config=job_config).result())
+            if results and results[0].cnt > 0:
+                programs.append("ITS (CN Inbound)")
+        except Exception as e:
+            logger.warning(f"Error checking ITS program: {e}")
+
+        return programs
+
     def get_shipping_speed_distribution(self, pid: str, days_back: int = 365) -> dict:
         """
         Get shipping speed distribution for a seller from CTP.
@@ -137,6 +181,10 @@ class BigQueryConnector:
 
         # Resolve legacy ID and build target list
         legacy_id = self._resolve_legacy_id(pid)
+        
+        # Check for programs (ICC/ITS)
+        seller_programs = self.check_seller_programs(pid, legacy_id)
+        
         target_ids = {pid}
         if legacy_id and legacy_id != pid:
             target_ids.add(legacy_id)
@@ -232,6 +280,7 @@ class BigQueryConnector:
 
             response = {
                 "pid": pid,
+                "programs": seller_programs,
                 "wfs_data": wfs_data,
                 "sff_data": sff_data,
                 "wfs_sort_data": wfs_sort_data,

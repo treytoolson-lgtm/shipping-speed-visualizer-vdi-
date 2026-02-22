@@ -281,9 +281,19 @@ function displayResults(data) {
     const sortedQ = hasQuarterly ? sortQuarters(Object.keys(data.quarterly_data)) : [];
     const sortedM = data.monthly_data ? sortMonths(Object.keys(data.monthly_data)) : [];
 
+    // Program Badges
+    const programBadges = (data.programs || []).map(p => 
+        `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2 border border-purple-200">
+            ${p}
+        </span>`
+    ).join('');
+
     results.innerHTML = `
         <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 card-hover fade-in h-full flex flex-col">
-            <h2 class="text-xl font-bold mb-2 text-wmt-gray-160">Results for PID: <span class="text-wmt-blue">${data.pid}</span></h2>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h2 class="text-xl font-bold text-wmt-gray-160">Results for PID: <span class="text-wmt-blue">${data.pid}</span></h2>
+                ${programBadges}
+            </div>
             <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span></p>
 
             <!-- Stats -->
