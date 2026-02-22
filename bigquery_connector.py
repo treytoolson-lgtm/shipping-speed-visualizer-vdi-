@@ -143,7 +143,7 @@ class BigQueryConnector:
                 # Bill to marketplace analytics
                 results = list(client.query(icc_query, job_config=job_config).result())
                 if results and results[0].cnt > 0:
-                    programs.append("ICC")
+                    programs.append("ICC / ITS")
             except Exception as e:
                 logger.warning(f"Error checking ICC program: {e}")
 
@@ -160,7 +160,7 @@ class BigQueryConnector:
             )
             results = list(client.query(its_query, job_config=job_config).result())
             if results and results[0].cnt > 0:
-                programs.append("ITS (CN Inbound)")
+                programs.append("ICC / ITS (Import)")
         except Exception as e:
             logger.warning(f"Error checking ITS program: {e}")
 
