@@ -5,13 +5,17 @@ BigQuery Connector for Shipping Speed Data
 Source: wmt-cp-prod.e2e_fmt_cp.CTP (Committed to Promise — order-line level)
 """
 
+import os
+import json
+from pathlib import Path
 from google.cloud import bigquery
 from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
 
-SPEED_KEYS = [f"{i}-day" for i in range(1, 11)]  # 1-day through 10-day
+# UPDATED SPEED KEYS based on Promise Groups
+SPEED_KEYS = ["1-day", "2-day", "3-day", "4-7 Day", "7+ Day"]
 
 
 def _init_speed_dict() -> dict:
@@ -37,11 +41,17 @@ class BigQueryConnector:
     @staticmethod
     def get_walmart_fiscal_quarter(date: datetime) -> str:
         """Get Walmart fiscal quarter for a given date.
-        Walmart FY starts in February.
+        Walmart FY starts in February (or Jan 31st for FY27).
         Q1: Feb-Apr, Q2: May-Jul, Q3: Aug-Oct, Q4: Nov-Jan
         """
         month = date.month
+        day = date.day
         year = date.year
+        
+        # Special case: Jan 31st is treated as start of Q1 for the new FY
+        if month == 1 and day >= 31:
+            return f"Q1 FY{year + 1}"
+
         if month in [2, 3, 4]:
             quarter = "Q1"
         elif month in [5, 6, 7]:
@@ -64,24 +74,49 @@ class BigQueryConnector:
         """Lazy-initialize BigQuery client."""
         if self.client is None:
             try:
-                # Use the environment's default project (from gcloud config)
-                # This avoids 403 errors if the user isn't in wmt-marketplace-analytics
-                self.client = bigquery.Client()
+                # 1. Try environment variable
+                project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+
+                # 2. Try to find it in gcloud config if not set
+                if not project_id:
+                    try:
+                        gcloud_config = Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+                        if gcloud_config.exists():
+                            with open(gcloud_config, "r") as f:
+                                data = json.load(f)
+                                project_id = data.get("quota_project_id")
+                                if project_id:
+                                    logger.info(f"Found project ID from gcloud config: {project_id}")
+                    except Exception as e:
+                        logger.warning(f"Could not read gcloud config: {e}")
+
+                # 3. Fallback to wmt-marketplace-analytics
+                if not project_id:
+                    project_id = "wmt-marketplace-analytics"
+                    logger.info(f"Using fallback project ID: {project_id}")
+
+                # Set the project explicitly
+                self.client = bigquery.Client(project=project_id)
                 logger.info(f"BigQuery client initialized with billing project: {self.client.project}")
             except Exception as e:
                 logger.error(f"Failed to initialize BigQuery client: {e}")
                 print("\n[ERROR] Could not determine a default Google Cloud project.")
                 print("Please run: gcloud config set project YOUR_PROJECT_ID")
-                print("Example: gcloud config set project wmt-analysis-userid\n")
+                print("Example: gcloud config set project wmt-marketplace-analytics\n")
                 raise
         return self.client
 
-    def _resolve_legacy_id(self, pid: str) -> str:
-        """Resolve Partner ID to Legacy Seller Org ID (SLR_ORG_ID) via mp_wfs_seller_mart."""
+    def _resolve_legacy_id(self, pid: str) -> tuple[str, str]:
+        """
+        Resolve Partner ID to Legacy Seller Org ID (SLR_ORG_ID) and Seller Name.
+        Returns (legacy_id, seller_name)
+        """
+        legacy_id = pid
+        seller_name = "Unknown Seller"
         try:
             client = self.get_client()
             query = """
-            SELECT legacy_id
+            SELECT legacy_id, partner_name
             FROM `wmt-marketplace-analytics.MPOA.mp_wfs_seller_mart`
             WHERE CAST(partner_id AS STRING) = @pid
             LIMIT 1
@@ -90,14 +125,44 @@ class BigQueryConnector:
                 query_parameters=[bigquery.ScalarQueryParameter("pid", "STRING", pid)]
             )
             results = list(client.query(query, job_config=job_config).result())
-            if results and results[0].legacy_id:
-                legacy_id = str(results[0].legacy_id)
-                logger.info(f"Mapped PID {pid} -> Legacy ID {legacy_id}")
-                return legacy_id
-            return pid
+            if results:
+                row = results[0]
+                if row.legacy_id:
+                    legacy_id = str(row.legacy_id)
+                    logger.info(f"Mapped PID {pid} -> Legacy ID {legacy_id}")
+                if row.partner_name:
+                    seller_name = row.partner_name
+                    logger.info(f"Found Seller Name: {seller_name}")
+            return legacy_id, seller_name
         except Exception as e:
-            logger.warning(f"Error resolving legacy ID: {e}")
-            return pid
+            logger.warning(f"Error resolving legacy ID/Name: {e}")
+            return pid, "Unknown Seller"
+
+    def _generate_yearly_breakdowns(self, start_date: datetime, end_date: datetime, monthly_data: dict) -> dict:
+        """Aggregate monthly data into Walmart Fiscal Years."""
+        years_to_include: set = set()
+        temp = start_date.replace(day=1)
+        while temp <= end_date:
+            years_to_include.add(self.get_walmart_fiscal_quarter(temp).split(' ')[1]) # Extract "FYxxxx"
+            temp = temp.replace(month=temp.month + 1) if temp.month < 12 else temp.replace(year=temp.year + 1, month=1)
+
+        yearly_data = {y: _init_monthly_entry() for y in years_to_include}
+
+        for month_key, month_data in monthly_data.items():
+            month_obj = datetime.strptime(month_key, "%b %Y")
+            fy = self.get_walmart_fiscal_quarter(month_obj).split(' ')[1]
+            if fy not in yearly_data:
+                continue
+            yd = yearly_data[fy]
+            yd["wfs"] += month_data["wfs"]
+            yd["sff"] += month_data["sff"]
+            for key in SPEED_KEYS:
+                for sub in ["wfs_breakdown", "sff_breakdown",
+                             "wfs_sort_breakdown", "wfs_nonsort_breakdown",
+                             "sff_sort_breakdown", "sff_nonsort_breakdown"]:
+                    yd[sub][key] += month_data.get(sub, {}).get(key, 0)
+
+        return yearly_data
 
     def _generate_quarterly_breakdowns(self, start_date: datetime, end_date: datetime, monthly_data: dict) -> dict:
         """Aggregate monthly data into Walmart fiscal quarters."""
@@ -169,21 +234,52 @@ class BigQueryConnector:
 
         return programs
 
-    def get_shipping_speed_distribution(self, pid: str, days_back: int = 365) -> dict:
+    def get_shipping_speed_distribution(self, pid: str, period_type: str = "fytd", metric_type: str = "actual") -> dict:
         """
         Get shipping speed distribution for a seller from CTP.
-        Returns 1–10 day buckets broken down by WFS/SFF and Sort/Nonsort.
-
+        
         Args:
             pid: Seller/Partner ID
-            days_back: Number of days to look back (default 365)
+            period_type: 'fytd', 'last_1_fy', 'last_2_fys'
+            metric_type: 'actual' (Time in Transit) or 'promise' (Customer Promise)
         """
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        
+        # Determine column based on metric type
+        # Actual: CALENDAR_DAY_Actual_TNT_final
+        # Promise: CALENDAR_DAY_CTP_Post_Consolidation_final (What customer sees)
+        if metric_type == "promise":
+            speed_col = "CALENDAR_DAY_CTP_Post_Consolidation_final"
+            metric_label = "Promise Speed"
+        else:
+            speed_col = "CALENDAR_DAY_Actual_TNT_final"
+            metric_label = "Actual Speed"
+        
+        # Calculate Current Fiscal Year Start (Start on Jan 31st)
+        if end_date.month >= 2:
+            current_fy_start = datetime(end_date.year, 1, 31)
+        else:
+            current_fy_start = datetime(end_date.year - 1, 1, 31)
+
+        if period_type == "last_2_fys":
+            # Current FY + Previous 2 FYs (Go back 2 years from current FY start)
+            start_date = current_fy_start.replace(year=current_fy_start.year - 2)
+            display_period = "Current FY + Last 2 FYs"
+        elif period_type == "last_1_fy":
+            # Current FY + Previous 1 FY (Go back 1 year from current FY start)
+            start_date = current_fy_start.replace(year=current_fy_start.year - 1)
+            display_period = "Current FY + Last FY"
+        else: # fytd
+            start_date = current_fy_start
+            display_period = "Fiscal Year To Date"
+
+        # Calculate exact days back for SQL query efficiency
+        days_back = (end_date - start_date).days
+        
         date_range_str = f"{start_date.strftime('%m/%d/%Y')} - {end_date.strftime('%m/%d/%Y')}"
 
-        # Resolve legacy ID and build target list
-        legacy_id = self._resolve_legacy_id(pid)
+        # Resolve legacy ID and get seller name
+        legacy_id, seller_name = self._resolve_legacy_id(pid)
         
         # Check for programs (ICC/ITS)
         seller_programs = self.check_seller_programs(pid, legacy_id)
@@ -193,16 +289,48 @@ class BigQueryConnector:
             target_ids.add(legacy_id)
         
         target_ids_list = list(target_ids)
-        print(f"[CTP] Querying for PID: {pid} (Targets: {target_ids_list}), last {days_back} days...")
+        print(f"[CTP] Querying for PID: {pid} ({period_type}, {metric_type}, {days_back} days) (Targets: {target_ids_list})...")
 
+        # Determine filtering based on metric type
+        # For 'actual' speed, we want delivered items.
+        # For 'promise' speed (CTP), we want ALL orders (even if not delivered yet).
+        delivery_filter = "AND ACTL_DLVR_DT IS NOT NULL" if metric_type == "actual" else ""
+        
+        # NOTE: With Promise Groups, we don't need to filter by calculated speed buckets (0-30 days)
+        # We assume Promise Group is populated. If not, it falls into 'Unknown' or is excluded in aggregation.
+        # So we remove the 'speed_col BETWEEN 0 AND 30' check.
+        
         query = f"""
         WITH ctp_filtered AS (
             SELECT
-                CASE WHEN WFS_ENABLED_IND = 1 THEN 'WFS' ELSE 'SFF' END AS mp_channel,
-                LOWER(COALESCE(CAST(FC_Sort_Type AS STRING), 'unknown')) AS sort_type,
+                -- Use Channel_Group3 for WFS/SFF split
+                CASE 
+                    WHEN Channel_Group3 = 'FC WFS' THEN 'WFS' 
+                    ELSE 'SFF' 
+                END AS mp_channel,
+                
+                -- Use Channel_Group4 for Sort Type (FC_WFS_Sort / FC_WFS_NS)
+                CASE
+                    WHEN Channel_Group4 = 'FC_WFS_Sort' THEN 'sort'
+                    WHEN Channel_Group4 = 'FC_WFS_NS' THEN 'ns'
+                    ELSE 'unknown'
+                END AS sort_type,
+
                 EXTRACT(MONTH FROM ORDER_DATE) AS month,
                 EXTRACT(YEAR  FROM ORDER_DATE) AS year,
-                LEAST(CAST(CALENDAR_DAY_Actual_TNT_final AS INT64), 10) AS speed_bucket,
+
+                -- Use Promise_Group for Speed Buckets
+                -- Map 'Same Day' and 'Next Day' to '1-day'
+                -- Map others directly
+                CASE
+                    WHEN Promise_Group IN ('Same Day', 'Next Day') THEN '1-day'
+                    WHEN Promise_Group = '2 Day' THEN '2-day'
+                    WHEN Promise_Group = '3 Day' THEN '3-day'
+                    WHEN Promise_Group = '4-7 Day' THEN '4-7 Day'
+                    WHEN Promise_Group = '7+ Day' THEN '7+ Day'
+                    ELSE 'Other' -- Handle unexpected values
+                END AS speed_bucket,
+
                 COALESCE(Total_Ordered_Units, 1) AS units
             FROM `{self.project}.{self.dataset_id}.{self.table_id}`
             WHERE
@@ -213,9 +341,8 @@ class BigQueryConnector:
                     SRC_SLR_ORG_CD IN UNNEST(@target_ids)
                 )
                 AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days_back} DAY)
-                AND ORDER_DATE <  CURRENT_DATE()
-                AND CALENDAR_DAY_Actual_TNT_final BETWEEN 1 AND 30
-                AND ACTL_DLVR_DT IS NOT NULL
+                AND ORDER_DATE <= CURRENT_DATE()
+                {delivery_filter}
         )
         SELECT
             mp_channel,
@@ -225,6 +352,7 @@ class BigQueryConnector:
             speed_bucket,
             SUM(units) AS unit_count
         FROM ctp_filtered
+        WHERE speed_bucket != 'Other' -- Exclude unmapped speeds if any
         GROUP BY 1, 2, 3, 4, 5
         ORDER BY year DESC, month DESC, speed_bucket
         """
@@ -248,7 +376,7 @@ class BigQueryConnector:
             for row in results:
                 channel = row.mp_channel       # 'WFS' | 'SFF'
                 sort_type = row.sort_type      # 'sort' | 'ns' | 'unknown'
-                speed_key = f"{int(row.speed_bucket)}-day"
+                speed_key = row.speed_bucket   # '1-day', '2-day', etc.
                 month_key = datetime(int(row.year), int(row.month), 1).strftime("%b %Y")
                 count = float(row.unit_count) if row.unit_count else 0.0
 
@@ -256,6 +384,10 @@ class BigQueryConnector:
                     monthly_data_raw[month_key] = _init_monthly_entry()
 
                 md = monthly_data_raw[month_key]
+
+                # Ensure speed_key is in our initialized dicts (ignore 'Other' if logic slipped)
+                if speed_key not in SPEED_KEYS:
+                    continue
 
                 if channel == "WFS":
                     wfs_data[speed_key] += count
@@ -283,6 +415,7 @@ class BigQueryConnector:
 
             response = {
                 "pid": pid,
+                "seller_name": seller_name,
                 "programs": seller_programs,
                 "wfs_data": wfs_data,
                 "sff_data": sff_data,
@@ -292,15 +425,20 @@ class BigQueryConnector:
                 "sff_nonsort_data": sff_nonsort_data,
                 "total_wfs_orders": int(total_wfs),
                 "total_sff_orders": int(total_sff),
-                "analysis_period": f"Last {days_back} days",
+                "analysis_period": display_period,
+                "metric_label": metric_label,
                 "date_range": date_range_str,
                 "monthly_data": monthly_data_raw,
             }
 
-            if days_back >= 180:
+            if monthly_data_raw:
                 response["quarterly_data"] = self._generate_quarterly_breakdowns(
                     start_date, end_date, monthly_data_raw
                 )
+                if period_type != "fytd":
+                    response["yearly_data"] = self._generate_yearly_breakdowns(
+                        start_date, end_date, monthly_data_raw
+                    )
 
             return response
 

@@ -40,13 +40,16 @@ bq = BigQueryConnector()
 class ShippingSpeedRequest(BaseModel):
     """Request model for shipping speed analysis"""
     pid: str
-    days_back: int = 365  # Default 12 months
+    period_type: str = "fytd"  # fytd, last_1_fy, last_2_fys
+    metric_type: str = "actual"  # actual, promise
 
 
 class ShippingSpeedAnalysis(BaseModel):
     """Response model for shipping speed analysis"""
     pid: str
+    seller_name: str
     programs: list = []
+    metric_label: str = "Actual Speed"
     wfs_data: dict
     sff_data: dict
     wfs_sort_data: dict = None
@@ -59,6 +62,7 @@ class ShippingSpeedAnalysis(BaseModel):
     date_range: str
     monthly_data: dict = None
     quarterly_data: dict = None
+    yearly_data: dict = None
 
 
 @app.get("/")
@@ -92,7 +96,8 @@ def get_shipping_speed(request: ShippingSpeedRequest):
             sys.stderr.flush()
             analysis = bq.get_shipping_speed_distribution(
                 pid=request.pid.strip(),
-                days_back=request.days_back
+                period_type=request.period_type,
+                metric_type=request.metric_type
             )
             print(f"[DEBUG] Successfully fetched analysis data", flush=True)
         except ValueError as ve:
@@ -139,12 +144,12 @@ if __name__ == "__main__":
     print("\n" + "="*80)
     print("🐾 Shipping Speed Visualizer")
     print("⚙️ Production Mode (Real BigQuery)")
-    print("Running on: http://localhost:5003/")
+    print("Running on: http://localhost:5004/")
     print("="*80 + "\n")
 
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
-        port=5003,
+        port=5004,
         reload=True
     )

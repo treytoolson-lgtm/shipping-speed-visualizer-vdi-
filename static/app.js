@@ -4,13 +4,15 @@
 let chartInstance = null;
 let monthlyChartInstance = null;
 let quarterlyChartInstance = null;
+let yearlyChartInstance = null;
 let currentView = 'overall';
 let globalMonthlyData = {};
 let globalQuarterlyData = {};
+let globalYearlyData = {};
 let globalData = null;        // full API response
 let sortModeOn = false;       // sort/nonsort toggle state
 
-const SPEED_LABELS = ['1-day','2-day','3-day','4-day','5-day','6-day','7-day','8-day','9-day','10-day'];
+const SPEED_LABELS = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
 
 // Walmart palette constants
 const COLORS = {
@@ -34,6 +36,7 @@ function buildDatasets(wfsBk, sffBk, wfsSortBk, wfsNonsortBk, sffSortBk, sffNons
 
     const pct  = (val, total) => total > 0 ? (val / total) * 100 : 0;
     const vals = (bk, total)  => SPEED_LABELS.map(l => pct(bk[l] || 0, total));
+    const counts = (bk)       => SPEED_LABELS.map(l => bk[l] || 0);
 
     const barOpts = (bg, hover) => ({
         backgroundColor: bg,
@@ -45,17 +48,17 @@ function buildDatasets(wfsBk, sffBk, wfsSortBk, wfsNonsortBk, sffSortBk, sffNons
 
     if (!sortModeOn) {
         return [
-            { label: 'WFS (Walmart Fulfilled)', data: vals(wfsBk, wfsTotal),
+            { label: 'WFS (Walmart Fulfilled)', data: vals(wfsBk, wfsTotal), rawCounts: counts(wfsBk),
               ...barOpts(COLORS.wfsSortBg, COLORS.wfsSortHover) },
-            { label: 'SFF (Seller Fulfilled)',  data: vals(sffBk, sffTotal),
+            { label: 'SFF (Seller Fulfilled)',  data: vals(sffBk, sffTotal), rawCounts: counts(sffBk),
               ...barOpts(COLORS.sffSortBg, COLORS.sffSortHover) },
         ];
     }
     // Sort Mode: Show ONLY WFS breakdown (since SFF sort data is unavailable)
     return [
-        { label: 'WFS — Sort',     data: vals(wfsSortBk  || {}, wfsSortTotal),
+        { label: 'WFS — Sort',     data: vals(wfsSortBk  || {}, wfsSortTotal), rawCounts: counts(wfsSortBk || {}),
           ...barOpts(COLORS.wfsSortBg,    COLORS.wfsSortHover) },
-        { label: 'WFS — Non-Sort', data: vals(wfsNonsortBk || {}, wfsNsTotal),
+        { label: 'WFS — Non-Sort', data: vals(wfsNonsortBk || {}, wfsNsTotal), rawCounts: counts(wfsNonsortBk || {}),
           ...barOpts(COLORS.wfsNonsortBg, COLORS.wfsNonsortHover) },
     ];
 }
@@ -85,7 +88,10 @@ function buildChartOptions(titleText) {
                 bodyFont:  { family: 'Bogle', size: 12 },
                 padding: 12, cornerRadius: 4,
                 callbacks: {
-                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+                    label: ctx => {
+                        const raw = ctx.dataset.rawCounts ? ctx.dataset.rawCounts[ctx.dataIndex] : 0;
+                        return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}% (${Number(raw).toLocaleString()} orders)`;
+                    }
                 },
             },
         },
@@ -125,6 +131,10 @@ function toggleSortMode() {
     }
     refreshLegend();
     if (currentView === 'overall' && globalData) displayOverallChart(globalData);
+    if (currentView === 'yearly') {
+        const activeY = document.querySelector('.yearly-btn.bg-wmt-blue');
+        if (activeY) showYearlyChart(activeY.dataset.fy);
+    }
     if (currentView === 'quarterly') {
         const activeQ = document.querySelector('.quarterly-btn.bg-wmt-blue');
         if (activeQ) showQuarterlyChart(activeQ.dataset.quarter);
@@ -171,7 +181,7 @@ function sortQuarters(quarters) {
 }
 
 function switchView(viewName) {
-    ['overall-view', 'quarterly-view', 'monthly-view'].forEach(id => {
+    ['overall-view', 'yearly-view', 'quarterly-view', 'monthly-view'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -187,11 +197,26 @@ function switchView(viewName) {
         activeTab.classList.add('text-wmt-blue', 'border-b-2', 'border-b-wmt-blue');
     }
     currentView = viewName;
+
+    // FORCE REFRESH: Ensure the newly visible chart matches the current sortModeOn state
+    if (viewName === 'overall' && globalData) {
+        displayOverallChart(globalData);
+    } else if (viewName === 'yearly') {
+        const activeY = document.querySelector('.yearly-btn.bg-wmt-blue');
+        if (activeY) showYearlyChart(activeY.dataset.fy);
+    } else if (viewName === 'quarterly') {
+        const activeQ = document.querySelector('.quarterly-btn.bg-wmt-blue');
+        if (activeQ) showQuarterlyChart(activeQ.dataset.quarter);
+    } else if (viewName === 'monthly') {
+        const activeM = document.querySelector('.monthly-btn.bg-wmt-blue');
+        if (activeM) showMonthlyChart(activeM.dataset.month);
+    }
 }
 
 async function analyzeShippingSpeed() {
     const pid       = document.getElementById('pid').value.trim();
-    const daysBack  = parseInt(document.getElementById('time_period').value);
+    const periodType = document.getElementById('time_period').value;
+    const metricType = document.getElementById('metric_type').value;
     const errorMsg  = document.getElementById('errorMsg');
     const loading   = document.getElementById('loading');
     const results   = document.getElementById('results');
@@ -223,7 +248,7 @@ async function analyzeShippingSpeed() {
         const response = await fetch('/api/shipping-speed', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pid, days_back: daysBack }),
+            body: JSON.stringify({ pid, period_type: periodType, metric_type: metricType }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Failed to fetch data');
@@ -270,16 +295,19 @@ function displayResults(data) {
     sortModeOn = false;
     if (data.monthly_data)   globalMonthlyData   = data.monthly_data;
     if (data.quarterly_data) globalQuarterlyData = data.quarterly_data;
+    if (data.yearly_data)    globalYearlyData    = data.yearly_data;
 
     const results      = document.getElementById('results');
     const totalWfs     = data.total_wfs_orders;
     const totalSff     = data.total_sff_orders;
     const hasSort      = !!(data.wfs_sort_data || data.sff_sort_data);
     const hasQuarterly = data.quarterly_data && Object.keys(data.quarterly_data).length > 0;
+    const hasYearly    = data.yearly_data && Object.keys(data.yearly_data).length > 0;
     
     // Pre-sort for finding active button
     const sortedQ = hasQuarterly ? sortQuarters(Object.keys(data.quarterly_data)) : [];
     const sortedM = data.monthly_data ? sortMonths(Object.keys(data.monthly_data)) : [];
+    const sortedY = hasYearly ? Object.keys(data.yearly_data).sort().reverse() : [];
 
     // Program Badges
     const programBadges = (data.programs || []).map(p => 
@@ -291,10 +319,10 @@ function displayResults(data) {
     results.innerHTML = `
         <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-200 card-hover fade-in h-full flex flex-col">
             <div class="flex flex-wrap items-center gap-2 mb-2">
-                <h2 class="text-xl font-bold text-wmt-gray-160">Results for PID: <span class="text-wmt-blue">${data.pid}</span></h2>
+                <h2 class="text-xl font-bold text-wmt-gray-160">Results for: <span class="text-wmt-blue">${data.seller_name}</span> <span class="text-gray-400 text-sm font-normal">(PID: ${data.pid})</span></h2>
                 ${programBadges}
             </div>
-            <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span></p>
+            <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span> <span class="text-gray-400 text-xs">(${data.analysis_period} • <span class="text-wmt-blue font-bold">${data.metric_label || 'Actual Speed'}</span>)</span></p>
 
             <!-- Stats -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
@@ -336,6 +364,7 @@ function displayResults(data) {
             <!-- View Tabs -->
             <div class="flex flex-wrap gap-2 mb-4 border-b border-gray-200 pb-1">
                 <button onclick="switchView('overall')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-wmt-blue border-b-2 border-wmt-blue" data-view="overall">Overall</button>
+                ${hasYearly ? `<button onclick="switchView('yearly')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-gray-500 hover:text-wmt-blue border-b-2 border-transparent" data-view="yearly">Yearly</button>` : ''}
                 ${hasQuarterly ? `<button onclick="switchView('quarterly')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-gray-500 hover:text-wmt-blue border-b-2 border-transparent" data-view="quarterly">Quarterly</button>` : ''}
                 ${data.monthly_data ? `<button onclick="switchView('monthly')" class="view-tab px-6 py-2 rounded-t-lg font-bold text-sm transition-all text-gray-500 hover:text-wmt-blue border-b-2 border-transparent" data-view="monthly">Monthly</button>` : ''}
             </div>
@@ -344,6 +373,19 @@ function displayResults(data) {
             <div id="overall-view" class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm flex-grow">
                 <canvas id="shippingChart"></canvas>
             </div>
+
+            ${hasYearly ? `
+            <div id="yearly-view" class="hidden">
+                <div class="mb-3 flex flex-wrap gap-2">
+                    ${sortedY.map(fy => 
+                        `<button onclick="showYearlyChart('${fy}')" data-fy="${fy}"
+                            class="yearly-btn px-4 py-2 rounded-lg text-sm font-semibold transition-all ${fy === sortedY[0] ? 'bg-wmt-blue text-white' : 'bg-gray-100 text-wmt-gray-160 hover:bg-gray-200'}">${fy}</button>`
+                    ).join('')}
+                </div>
+                <div class="bg-white rounded-lg border border-gray-200 chart-container mb-0 shadow-sm flex-grow">
+                    <canvas id="yearlyChartMain"></canvas>
+                </div>
+            </div>` : ''}
 
             ${hasQuarterly ? `
             <div id="quarterly-view" class="hidden">
@@ -390,10 +432,12 @@ function displayResults(data) {
     Chart.register(ChartDataLabels);
     setTimeout(() => {
         displayOverallChart(data);
-        if (data.monthly_data && Object.keys(data.monthly_data).length > 0)
-            setTimeout(() => showMonthlyChart(sortedM[0]), 100);
-        if (data.quarterly_data && Object.keys(data.quarterly_data).length > 0)
+        if (hasYearly)
+            setTimeout(() => showYearlyChart(sortedY[0]), 50);
+        if (hasQuarterly)
             setTimeout(() => showQuarterlyChart(sortedQ[0]), 200);
+        if (data.monthly_data && Object.keys(data.monthly_data).length > 0)
+            setTimeout(() => showMonthlyChart(sortedM[0]), 300);
     }, 0);
 }
 
@@ -401,6 +445,9 @@ function displayOverallChart(data) {
     const ctx = document.getElementById('shippingChart');
     if (!ctx) return;
     if (chartInstance) chartInstance.destroy();
+    
+    const totalOrders = (data.total_wfs_orders || 0) + (data.total_sff_orders || 0);
+    
     chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -411,7 +458,7 @@ function displayOverallChart(data) {
                 data.sff_sort_data, data.sff_nonsort_data
             ),
         },
-        options: buildChartOptions('Overall Shipping Speed Distribution'),
+        options: buildChartOptions(`Overall Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
     });
 }
 
@@ -428,6 +475,9 @@ function showQuarterlyChart(quarterName) {
     const ctx = document.getElementById('quarterlyChartMain');
     if (!ctx) return;
     if (quarterlyChartInstance) quarterlyChartInstance.destroy();
+
+    const totalOrders = (qd.wfs || 0) + (qd.sff || 0);
+
     quarterlyChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -438,7 +488,7 @@ function showQuarterlyChart(quarterName) {
                 qd.sff_sort_breakdown || {}, qd.sff_nonsort_breakdown || {}
             ),
         },
-        options: buildChartOptions(`${quarterName} — Shipping Speed Distribution`),
+        options: buildChartOptions(`${quarterName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
     });
 }
 
@@ -455,6 +505,9 @@ function showMonthlyChart(monthName) {
     const ctx = document.getElementById('monthlyChart');
     if (!ctx) return;
     if (monthlyChartInstance) monthlyChartInstance.destroy();
+
+    const totalOrders = (md.wfs || 0) + (md.sff || 0);
+
     monthlyChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -465,7 +518,37 @@ function showMonthlyChart(monthName) {
                 md.sff_sort_breakdown || {}, md.sff_nonsort_breakdown || {}
             ),
         },
-        options: buildChartOptions(`${monthName} — Shipping Speed Distribution`),
+        options: buildChartOptions(`${monthName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
+    });
+}
+
+function showYearlyChart(fyName) {
+    const yd = globalYearlyData[fyName];
+    if (!yd) return;
+    document.querySelectorAll('.yearly-btn').forEach(b => {
+        b.classList.remove('bg-wmt-blue', 'text-white');
+        b.classList.add('bg-gray-100', 'text-wmt-gray-160');
+    });
+    const btn = document.querySelector(`[data-fy="${fyName}"]`);
+    if (btn) { btn.classList.remove('bg-gray-100','text-wmt-gray-160'); btn.classList.add('bg-wmt-blue','text-white'); }
+
+    const ctx = document.getElementById('yearlyChartMain');
+    if (!ctx) return;
+    if (yearlyChartInstance) yearlyChartInstance.destroy();
+
+    const totalOrders = (yd.wfs || 0) + (yd.sff || 0);
+
+    yearlyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: SPEED_LABELS,
+            datasets: buildDatasets(
+                yd.wfs_breakdown || {}, yd.sff_breakdown || {},
+                yd.wfs_sort_breakdown || {}, yd.wfs_nonsort_breakdown || {},
+                yd.sff_sort_breakdown || {}, yd.sff_nonsort_breakdown || {}
+            ),
+        },
+        options: buildChartOptions(`${fyName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
     });
 }
 
