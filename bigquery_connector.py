@@ -234,7 +234,7 @@ class BigQueryConnector:
 
         return programs
 
-    def get_shipping_speed_distribution(self, pid: str, period_type: str = "fytd", metric_type: str = "actual") -> dict:
+    def get_shipping_speed_distribution(self, pid: str, period_type: str = "fytd", metric_type: str = "actual", division_filter: str = "") -> dict:
         """
         Get shipping speed distribution for a seller from CTP.
         
@@ -242,6 +242,7 @@ class BigQueryConnector:
             pid: Seller/Partner ID
             period_type: 'fytd', 'last_1_fy', 'last_2_fys'
             metric_type: 'actual' (Time in Transit) or 'promise' (Customer Promise)
+            division_filter: Optional L0 Division to filter by (e.g. 'HOME')
         """
         end_date = datetime.now()
         
@@ -300,6 +301,9 @@ class BigQueryConnector:
         # We assume Promise Group is populated. If not, it falls into 'Unknown' or is excluded in aggregation.
         # So we remove the 'speed_col BETWEEN 0 AND 30' check.
         
+        # Optional L0 Division filter (for PID mode category buttons)
+        division_clause = f"AND Division = '{division_filter}'" if division_filter else ""
+
         query = f"""
         WITH ctp_filtered AS (
             SELECT
@@ -343,6 +347,7 @@ class BigQueryConnector:
                 AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days_back} DAY)
                 AND ORDER_DATE <= CURRENT_DATE()
                 {delivery_filter}
+                {division_clause}
         )
         SELECT
             mp_channel,
@@ -413,10 +418,16 @@ class BigQueryConnector:
                         sff_nonsort_data[speed_key] += count
                         md["sff_nonsort_breakdown"][speed_key] += count
 
+            # Fetch L0 divisions this seller sells in (for filter buttons)
+            from bigquery_category import get_seller_divisions
+            seller_divisions = get_seller_divisions(target_ids_list, days_back)
+
             response = {
                 "pid": pid,
                 "seller_name": seller_name,
                 "programs": seller_programs,
+                "seller_divisions": seller_divisions,
+                "division_filter": division_filter,
                 "wfs_data": wfs_data,
                 "sff_data": sff_data,
                 "wfs_sort_data": wfs_sort_data,

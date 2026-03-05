@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 
 from bigquery_connector import BigQueryConnector
+from bigquery_category import get_l0_divisions, get_category_analysis
 
 # Initialize FastAPI
 app = FastAPI(title="Shipping Speed Visualizer")
@@ -40,8 +41,15 @@ bq = BigQueryConnector()
 class ShippingSpeedRequest(BaseModel):
     """Request model for shipping speed analysis"""
     pid: str
-    period_type: str = "fytd"  # fytd, last_1_fy, last_2_fys
-    metric_type: str = "actual"  # actual, promise
+    period_type: str = "fytd"
+    metric_type: str = "actual"
+    division_filter: str = ""   # L0 category filter (empty = Total Book)
+
+
+class CategoryAnalysisRequest(BaseModel):
+    """Request model for category mode analysis"""
+    division: str
+    period_type: str = "fytd"
 
 
 class ShippingSpeedAnalysis(BaseModel):
@@ -97,7 +105,8 @@ def get_shipping_speed(request: ShippingSpeedRequest):
             analysis = bq.get_shipping_speed_distribution(
                 pid=request.pid.strip(),
                 period_type=request.period_type,
-                metric_type=request.metric_type
+                metric_type=request.metric_type,
+                division_filter=request.division_filter.strip(),
             )
             print(f"[DEBUG] Successfully fetched analysis data", flush=True)
         except ValueError as ve:
@@ -136,6 +145,33 @@ def get_shipping_speed(request: ShippingSpeedRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+@app.get("/api/l0-divisions")
+def list_l0_divisions():
+    """Return all distinct L0 Divisions from CTP (for the category dropdown)."""
+    try:
+        divisions = get_l0_divisions()
+        return JSONResponse(content={"divisions": divisions})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/category-analysis")
+def run_category_analysis(request: CategoryAnalysisRequest):
+    """Run all 4 category-mode analyses for the selected L0 Division."""
+    if not request.division:
+        raise HTTPException(status_code=400, detail="Division is required")
+    try:
+        result = get_category_analysis(
+            division=request.division,
+            period_type=request.period_type,
+        )
+        return JSONResponse(content=result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

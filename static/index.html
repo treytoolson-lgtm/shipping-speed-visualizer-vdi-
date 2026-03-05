@@ -122,26 +122,38 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Input Section -->
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200 card-hover fade-in mb-8">
-            <h2 class="text-xl font-bold mb-6 text-wmt-gray-160">Enter Seller Details</h2>
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200 card-hover fade-in mb-4">
+
+            <!-- Mode Toggle -->
+            <div class="flex items-center gap-3 mb-6">
+                <span class="text-sm font-bold text-wmt-gray-160">Analysis Mode:</span>
+                <div class="flex rounded-full border border-gray-300 overflow-hidden">
+                    <button id="modePidBtn"
+                        onclick="setMode('pid')"
+                        class="px-5 py-2 text-sm font-bold transition-all bg-wmt-blue text-white">
+                        📦 Seller PID
+                    </button>
+                    <button id="modeCatBtn"
+                        onclick="setMode('category')"
+                        class="px-5 py-2 text-sm font-bold transition-all bg-white text-gray-500 hover:bg-gray-50">
+                        📊 Category
+                    </button>
+                </div>
+            </div>
+
             <div id="errorMsg" class="bg-red-50 border border-wmt-red text-wmt-red px-4 py-3 rounded-md mb-4 hidden text-sm font-medium"></div>
-            <div class="flex flex-col sm:flex-row gap-4 items-end">
+
+            <!-- PID Mode Inputs -->
+            <div id="pidInputs" class="flex flex-col sm:flex-row gap-4 items-end">
                 <div class="flex-1">
                     <label for="pid" class="block text-sm font-bold mb-2 text-wmt-gray-160">Seller PID</label>
-                    <input
-                        type="text"
-                        id="pid"
+                    <input type="text" id="pid"
                         class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 placeholder-gray-500 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium"
-                        placeholder="Enter PID (e.g., 10000002874)"
-                        required
-                    />
+                        placeholder="Enter PID (e.g., 10000002874)" />
                 </div>
                 <div class="w-full sm:w-64">
                     <label for="time_period" class="block text-sm font-bold mb-2 text-wmt-gray-160">Fiscal Period</label>
-                    <select
-                        id="time_period"
-                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
-                    >
+                    <select id="time_period" class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10">
                         <option value="fytd" selected>Fiscal Year To Date</option>
                         <option value="last_1_fy">Current FY + Last FY</option>
                         <option value="last_2_fys">Current FY + Last 2 FYs</option>
@@ -149,17 +161,49 @@
                 </div>
                 <div class="w-full sm:w-48">
                     <label for="metric_type" class="block text-sm font-bold mb-2 text-wmt-gray-160">Metric</label>
-                    <select
-                        id="metric_type"
-                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
-                    >
+                    <select id="metric_type" class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10">
                         <option value="actual" selected>Actual (Transit)</option>
                         <option value="promise">Promise (Customer)</option>
                     </select>
                 </div>
-                <button id="analyzeBtn" class="w-full sm:w-auto bg-wmt-blue hover:bg-[#004dc1] active:bg-[#003d99] text-white font-bold py-2.5 px-8 rounded-full shadow-sm transition-all duration-200 text-sm tracking-wide flex items-center justify-center gap-2" onclick="analyzeShippingSpeed()"> 
+                <button id="analyzeBtn"
+                    class="w-full sm:w-auto bg-wmt-blue hover:bg-[#004dc1] active:bg-[#003d99] text-white font-bold py-2.5 px-8 rounded-full shadow-sm transition-all duration-200 text-sm tracking-wide flex items-center justify-center gap-2"
+                    onclick="analyzeShippingSpeed()">
                     Analyze
                 </button>
+            </div>
+
+            <!-- Category Mode Inputs (hidden by default) -->
+            <div id="categoryInputs" class="hidden flex-col sm:flex-row gap-4 items-end">
+                <div class="flex-1">
+                    <label for="cat_division" class="block text-sm font-bold mb-2 text-wmt-gray-160">L0 Division</label>
+                    <select id="cat_division"
+                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10">
+                        <option value="">Loading divisions...</option>
+                    </select>
+                </div>
+                <div class="w-full sm:w-64">
+                    <label for="cat_period" class="block text-sm font-bold mb-2 text-wmt-gray-160">Fiscal Period</label>
+                    <select id="cat_period"
+                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10">
+                        <option value="fytd" selected>Fiscal Year To Date</option>
+                        <option value="last_1_fy">Current FY + Last FY</option>
+                        <option value="last_2_fys">Current FY + Last 2 FYs</option>
+                    </select>
+                </div>
+                <button id="catAnalyzeBtn"
+                    class="w-full sm:w-auto bg-wmt-blue hover:bg-[#004dc1] text-white font-bold py-2.5 px-8 rounded-full shadow-sm transition-all duration-200 text-sm tracking-wide"
+                    onclick="analyzeCategoryMode()">
+                    Analyze Category
+                </button>
+            </div>
+        </div>
+
+        <!-- L0 Filter Bar (PID mode — appears after data loads) -->
+        <div id="l0FilterBar" class="hidden bg-white rounded-lg shadow-sm px-6 py-3 border border-gray-200 fade-in mb-4">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">Filter by Category:</span>
+                <div id="l0FilterButtons" class="flex flex-wrap gap-2"></div>
             </div>
         </div>
 
@@ -192,5 +236,6 @@
     </footer>
 
     <script src="/static/app.js"></script>
+    <script src="/static/category.js"></script>
 </body>
 </html>
