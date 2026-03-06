@@ -9,7 +9,8 @@ let currentView = 'overall';
 let globalMonthlyData = {};
 let globalQuarterlyData = {};
 let globalYearlyData = {};
-let globalData = null;
+let globalData     = null;  // current view (may be filtered)
+let _baseGlobalData = null; // original full fetch — never overwritten by filters
 let sortModeOn = false;
 
 // Mode + L0 filter state
