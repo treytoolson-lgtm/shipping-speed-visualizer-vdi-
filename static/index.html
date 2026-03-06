@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shipping Speed Visualizer</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g fill='%23ffc220' transform='translate(50,50)'><rect x='-4' y='-45' width='8' height='38' rx='4'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(60)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(120)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(180)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(240)'/><rect x='-4' y='-45' width='8' height='38' rx='4' transform='rotate(300)'/></g><text x='50' y='62' font-family='sans-serif' font-weight='900' font-size='38' text-anchor='middle' fill='%230053e2' stroke='white' stroke-width='4' paint-order='stroke'>WFS</text></svg>">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="/static/vendor/tailwind.js"></script>
+    <script src="/static/vendor/chart.js"></script>
+    <script src="/static/vendor/chartjs-plugin-datalabels.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -147,16 +147,7 @@
                         <option value="last_2_fys">Current FY + Last 2 FYs</option>
                     </select>
                 </div>
-                <div class="w-full sm:w-48">
-                    <label for="metric_type" class="block text-sm font-bold mb-2 text-wmt-gray-160">Metric</label>
-                    <select
-                        id="metric_type"
-                        class="w-full bg-white border border-gray-300 rounded-full px-5 py-2.5 text-wmt-gray-160 focus:outline-none focus:border-wmt-blue focus:ring-2 focus:ring-wmt-blue/20 transition-all font-medium appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%230071DC%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4l128-128c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_12px] bg-[right_1rem_center] bg-no-repeat pr-10"
-                    >
-                        <option value="actual" selected>Actual (Transit)</option>
-                        <option value="promise">Promise (Customer)</option>
-                    </select>
-                </div>
+
                 <button id="analyzeBtn" class="w-full sm:w-auto bg-wmt-blue hover:bg-[#004dc1] active:bg-[#003d99] text-white font-bold py-2.5 px-8 rounded-full shadow-sm transition-all duration-200 text-sm tracking-wide flex items-center justify-center gap-2" onclick="analyzeShippingSpeed()"> 
                     Analyze
                 </button>
