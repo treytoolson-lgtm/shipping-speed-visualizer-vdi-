@@ -8,6 +8,8 @@
     <script src="/static/vendor/tailwind.js"></script>
     <script src="/static/vendor/chart.js"></script>
     <script src="/static/vendor/chartjs-plugin-datalabels.js"></script>
+    <script src="/static/vendor/d3.min.js"></script>
+    <script src="/static/vendor/topojson.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -131,12 +133,12 @@
                     <button id="modePidBtn"
                         onclick="setMode('pid')"
                         class="px-5 py-2 text-sm font-bold transition-all bg-wmt-blue text-white">
-                        📦 Seller PID
+                        Seller PID
                     </button>
                     <button id="modeCatBtn"
                         onclick="setMode('category')"
                         class="px-5 py-2 text-sm font-bold transition-all bg-white text-gray-500 hover:bg-gray-50">
-                        📊 Category
+                        Category
                     </button>
                 </div>
             </div>

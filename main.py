@@ -178,8 +178,8 @@ if __name__ == "__main__":
     import uvicorn
 
     print("\n" + "="*80)
-    print("🐾 Shipping Speed Visualizer")
-    print("⚙️ Production Mode (Real BigQuery)")
+    print("Shipping Speed Visualizer")
+    print("Production Mode (Real BigQuery)")
     print("Running on: http://localhost:5004/")
     print("="*80 + "\n")
 

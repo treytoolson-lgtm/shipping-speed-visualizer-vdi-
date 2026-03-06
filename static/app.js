@@ -68,39 +68,35 @@ function renderL0FilterBar(divisions, activeFilter) {
     bar.classList.remove('hidden');
 }
 
-/** Re-fetch PID data with a specific L0 Division filter applied. */
-async function applyL0Filter(division) {
+/** Filter already-loaded PID data by L0 division — no BQ re-fetch. */
+function applyL0Filter(division) {
     currentL0Filter = division;
-    const errorMsg  = document.getElementById('errorMsg');
-    const loading   = document.getElementById('loading');
-    const results   = document.getElementById('results');
 
-    errorMsg.classList.add('hidden');
-    results.innerHTML = '';
-    loading.classList.remove('hidden');
+    let viewData = globalData;
 
-    try {
-        const resp = await fetch('/api/shipping-speed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pid: lastPid,
-                period_type: lastPeriod,
-                metric_type: lastMetric,
-                division_filter: division,
-            }),
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.detail || 'Failed to fetch data');
-        loading.classList.add('hidden');
-        displayResults(data);
-        // Re-render filter bar with updated active state
-        renderL0FilterBar(data.seller_divisions || [], division);
-    } catch (err) {
-        loading.classList.add('hidden');
-        errorMsg.textContent = `Error: ${err.message}`;
-        errorMsg.classList.remove('hidden');
+    if (division && globalData.division_data && globalData.division_data[division]) {
+        const dd = globalData.division_data[division];
+        // Build a slimmed-down view from cached division data (no monthly/quarterly)
+        viewData = {
+            ...globalData,
+            wfs_data:         dd.wfs_data,
+            sff_data:         dd.sff_data,
+            wfs_sort_data:    dd.wfs_sort_data,
+            wfs_nonsort_data: dd.wfs_nonsort_data,
+            sff_sort_data:    null,
+            sff_nonsort_data: null,
+            total_wfs_orders: dd.total_wfs,
+            total_sff_orders: dd.total_sff,
+            // Hide time-series tabs when filtered — data is total book only
+            monthly_data:   null,
+            quarterly_data: null,
+            yearly_data:    null,
+        };
     }
+
+    displayResults(viewData);
+    // Re-render filter bar so active state updates
+    renderL0FilterBar(globalData.seller_divisions || [], division);
 }
 
 const SPEED_LABELS = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
@@ -423,7 +419,7 @@ function displayResults(data) {
                 ${programBadges}
                 ${data.division_filter ? `<span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold bg-wmt-blue/10 text-wmt-blue border border-wmt-blue/20">🏷️ ${data.division_filter}</span>` : ''}
             </div>
-            <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span> <span class="text-gray-400 text-xs">(${data.analysis_period} • <span class="text-wmt-blue font-bold">${data.metric_label || 'Actual Speed'}</span>)</span></p>
+            <p class="text-wmt-gray-160 text-sm mb-6 font-medium">Date Range: <span class="font-bold">${data.date_range}</span> <span class="text-gray-400 text-xs">(${data.analysis_period} • <span class="text-wmt-blue font-bold">${data.metric_label || 'Actual Speed'}</span>)</span></p>
 
             <!-- Stats -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">

@@ -171,34 +171,40 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         wow.append(entry)
     wow.reverse()  # chronological for the chart
 
-    # ─ Query 3: Top Offenders (sellers with worst 7+ day %) ──────────────
-    q_off = f"""
-    SELECT
-        COALESCE(SLR_ORG_NM, 'Unknown') AS seller_name,
-        CAST(SLR_ORG_ID AS STRING) AS slr_org_id,
-        SUM(CASE WHEN Promise_Group = '7+ Day' THEN COALESCE(Total_Ordered_Units,1) ELSE 0 END) AS slow_units,
-        SUM(COALESCE(Total_Ordered_Units,1)) AS total_units
-    FROM {BASE_TABLE}
-    WHERE {FULFMT_WHERE}
-      AND Division = @division
-      AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
-      AND SLR_ORG_NM IS NOT NULL
-    GROUP BY 1, 2
-    HAVING total_units >= 100
-    ORDER BY SAFE_DIVIDE(slow_units, total_units) DESC
-    LIMIT 20
-    """
-    top_offenders = []
-    for row in client.query(q_off, job_config=div_param).result():
-        total = float(row.total_units or 0)
-        slow  = float(row.slow_units  or 0)
-        top_offenders.append({
-            "seller_name": row.seller_name,
-            "slr_org_id":  row.slr_org_id,
-            "slow_units":  int(slow),
-            "total_units": int(total),
-            "slow_pct":    round(slow / total * 100, 1) if total else 0,
-        })
+    # ─ Query 3: State-level speed distribution (for US map) ─────────────
+    state_data = {}
+    try:
+        q_state = f"""
+        SELECT
+            SHPNG_DEST_ST_CD AS state,
+            {SPEED_SQL} AS speed_bucket,
+            SUM(COALESCE(Total_Ordered_Units, 1)) AS units
+        FROM {BASE_TABLE}
+        WHERE {FULFMT_WHERE}
+          AND Division = @division
+          AND SHPNG_DEST_ST_CD IS NOT NULL
+          AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
+        GROUP BY 1, 2
+        """
+        state_raw = {}
+        for row in client.query(q_state, job_config=div_param).result():
+            st, speed, units = row.state, row.speed_bucket, float(row.units or 0)
+            if speed == 'Other' or not st:
+                continue
+            if st not in state_raw:
+                state_raw[st] = {k: 0.0 for k in SPEED_KEYS}
+            state_raw[st][speed] += units
+        for st, buckets in state_raw.items():
+            total = sum(buckets.values())
+            if total == 0:
+                continue
+            state_data[st] = {
+                **{k: round(v / total * 100, 1) for k, v in buckets.items()},
+                "total_units": int(total),
+                "dominant": max(buckets, key=buckets.get),
+            }
+    except Exception as e:
+        logger.warning(f"State map query failed (column may differ): {e}")
 
     # ─ Query 4: Benchmark — all L0 Divisions side-by-side ────────────────
     q_bench = f"""
@@ -237,9 +243,9 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         "period_type":     period_type,
         "analysis_period": period_labels.get(period_type, period_type),
         "date_range":      f"{days} days ending {now.strftime('%m/%d/%Y')}",
-        "heatmap":         heatmap_pct,
-        "channel_mix":     channel_mix,
-        "wow":             wow,
-        "top_offenders":   top_offenders,
-        "benchmark":       benchmark,
+        "heatmap":     heatmap_pct,
+        "channel_mix": channel_mix,
+        "wow":         wow,
+        "state_data":  state_data,
+        "benchmark":   benchmark,
     }

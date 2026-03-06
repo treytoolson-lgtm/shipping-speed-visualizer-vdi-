@@ -301,8 +301,7 @@ class BigQueryConnector:
         # We assume Promise Group is populated. If not, it falls into 'Unknown' or is excluded in aggregation.
         # So we remove the 'speed_col BETWEEN 0 AND 30' check.
         
-        # Optional L0 Division filter (for PID mode category buttons)
-        division_clause = f"AND Division = '{division_filter}'" if division_filter else ""
+
 
         query = f"""
         WITH ctp_filtered AS (
@@ -335,6 +334,7 @@ class BigQueryConnector:
                     ELSE 'Other' -- Handle unexpected values
                 END AS speed_bucket,
 
+                COALESCE(Division, '') AS division,
                 COALESCE(Total_Ordered_Units, 1) AS units
             FROM `{self.project}.{self.dataset_id}.{self.table_id}`
             WHERE
@@ -347,7 +347,6 @@ class BigQueryConnector:
                 AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days_back} DAY)
                 AND ORDER_DATE <= CURRENT_DATE()
                 {delivery_filter}
-                {division_clause}
         )
         SELECT
             mp_channel,
@@ -355,10 +354,11 @@ class BigQueryConnector:
             month,
             year,
             speed_bucket,
+            division,
             SUM(units) AS unit_count
         FROM ctp_filtered
-        WHERE speed_bucket != 'Other' -- Exclude unmapped speeds if any
-        GROUP BY 1, 2, 3, 4, 5
+        WHERE speed_bucket != 'Other'
+        GROUP BY 1, 2, 3, 4, 5, 6
         ORDER BY year DESC, month DESC, speed_bucket
         """
 
@@ -377,22 +377,34 @@ class BigQueryConnector:
             sff_sort_data, sff_nonsort_data = _init_speed_dict(), _init_speed_dict()
             total_wfs = total_sff = 0.0
             monthly_data_raw: dict = {}
+            division_data: dict = {}  # div -> per-channel speed totals
 
             for row in results:
-                channel = row.mp_channel       # 'WFS' | 'SFF'
-                sort_type = row.sort_type      # 'sort' | 'ns' | 'unknown'
-                speed_key = row.speed_bucket   # '1-day', '2-day', etc.
+                channel   = row.mp_channel
+                sort_type = row.sort_type
+                speed_key = row.speed_bucket
+                division  = row.division or ''
                 month_key = datetime(int(row.year), int(row.month), 1).strftime("%b %Y")
-                count = float(row.unit_count) if row.unit_count else 0.0
+                count     = float(row.unit_count) if row.unit_count else 0.0
 
                 if month_key not in monthly_data_raw:
                     monthly_data_raw[month_key] = _init_monthly_entry()
 
                 md = monthly_data_raw[month_key]
 
-                # Ensure speed_key is in our initialized dicts (ignore 'Other' if logic slipped)
                 if speed_key not in SPEED_KEYS:
                     continue
+
+                # Per-division accumulator (used for client-side L0 filter)
+                if division and division not in division_data:
+                    division_data[division] = {
+                        "wfs_data":        _init_speed_dict(),
+                        "sff_data":        _init_speed_dict(),
+                        "wfs_sort_data":   _init_speed_dict(),
+                        "wfs_nonsort_data": _init_speed_dict(),
+                        "total_wfs":       0.0,
+                        "total_sff":       0.0,
+                    }
 
                 if channel == "WFS":
                     wfs_data[speed_key] += count
@@ -405,6 +417,13 @@ class BigQueryConnector:
                     elif sort_type == "ns":
                         wfs_nonsort_data[speed_key] += count
                         md["wfs_nonsort_breakdown"][speed_key] += count
+                    if division and division in division_data:
+                        division_data[division]["wfs_data"][speed_key] += count
+                        division_data[division]["total_wfs"] += count
+                        if sort_type == "sort":
+                            division_data[division]["wfs_sort_data"][speed_key] += count
+                        elif sort_type == "ns":
+                            division_data[division]["wfs_nonsort_data"][speed_key] += count
 
                 elif channel == "SFF":
                     sff_data[speed_key] += count
@@ -417,17 +436,28 @@ class BigQueryConnector:
                     elif sort_type == "ns":
                         sff_nonsort_data[speed_key] += count
                         md["sff_nonsort_breakdown"][speed_key] += count
+                    if division and division in division_data:
+                        division_data[division]["sff_data"][speed_key] += count
+                        division_data[division]["total_sff"] += count
 
-            # Fetch L0 divisions this seller sells in (for filter buttons)
-            from bigquery_category import get_seller_divisions
-            seller_divisions = get_seller_divisions(target_ids_list, days_back)
+            # Derive seller divisions from accumulated data (sorted by volume)
+            seller_divisions = sorted(
+                division_data.keys(),
+                key=lambda d: division_data[d]["total_wfs"] + division_data[d]["total_sff"],
+                reverse=True,
+            )
+
+            # Convert float totals to int for JSON serialisation
+            for dd in division_data.values():
+                dd["total_wfs"] = int(dd["total_wfs"])
+                dd["total_sff"] = int(dd["total_sff"])
 
             response = {
                 "pid": pid,
                 "seller_name": seller_name,
                 "programs": seller_programs,
                 "seller_divisions": seller_divisions,
-                "division_filter": division_filter,
+                "division_data": division_data,
                 "wfs_data": wfs_data,
                 "sff_data": sff_data,
                 "wfs_sort_data": wfs_sort_data,
