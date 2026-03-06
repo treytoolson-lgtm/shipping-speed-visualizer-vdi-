@@ -121,15 +121,24 @@ function displayCategoryResults(data) {
             <div class="p-6">
                 <!-- WFS vs SFF -->
                 <div id="cat-mix">
-                    <div class="chart-container" style="height:460px">
+                    <!-- Legend -->
+                    <div class="flex gap-6 mb-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background:#0053e2"></div>
+                            <span class="text-sm font-medium text-wmt-gray-160">WFS (Walmart Fulfilled)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background:#ffc220"></div>
+                            <span class="text-sm font-medium text-wmt-gray-160">SFF (Seller Fulfilled)</span>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height:420px">
                         <canvas id="catMixChart"></canvas>
                     </div>
-                    <div class="flex justify-center mt-4" id="mixShowAllWrap">
-                        <button onclick="mixToggleAll()" id="mixShowAllBtn"
-                            class="px-5 py-2 rounded-full text-sm font-bold border border-gray-300
-                                   text-gray-600 hover:border-wmt-blue hover:text-wmt-blue transition-all">
-                            Show All Departments
-                        </button>
+                    <!-- Dept drill-down buttons -->
+                    <div class="mt-4">
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Drill down by Department:</p>
+                        <div id="mixDeptButtons" class="flex flex-wrap gap-2"></div>
                     </div>
                 </div>
 
@@ -171,11 +180,14 @@ function displayCategoryResults(data) {
             </div>
         </div>`;
 
-    // Store full dept list for Show All toggle
-    catAllDepts = Object.keys(data.channel_mix || {});
+    // Store data for dept drill-down
+    _catDivisionSpeed = data.division_speed || null;
+    _catDeptSpeed     = data.dept_speed     || {};
+    _catActiveDept    = null;
 
     setTimeout(() => {
-        mountMixChart(data.channel_mix, false);
+        mountSpeedMixChart(_catDivisionSpeed, 'All Departments');
+        renderDeptFilterButtons(_catDeptSpeed, null);
         mountWowChart(data.wow);
         mountUSMap(data.state_data || {});
         mountBenchChart(data.benchmark);
@@ -198,71 +210,120 @@ function catSwitchTab(tab) {
     });
 }
 
-// ─── Tab 1: WFS vs SFF Mix chart ─────────────────────────────────────────────
-function mountMixChart(channelMix, showAll) {
-    if (!channelMix) return;
-    _lastChannelMix = channelMix; // cache for Show All toggle
-
-    // Sort depts by total volume, slice to TOP_N unless showAll
-    let depts = Object.keys(channelMix).sort(
-        (a, b) => (channelMix[b].wfs + channelMix[b].sff) - (channelMix[a].wfs + channelMix[a].sff)
-    );
-    const totalDepts = depts.length;
-    if (!showAll) depts = depts.slice(0, TOP_N);
-
-    const wfsVals = depts.map(d => {
-        const tot = channelMix[d].wfs + channelMix[d].sff;
-        return tot ? +(channelMix[d].wfs / tot * 100).toFixed(1) : 0;
-    });
-    const sffVals = depts.map(d => {
-        const tot = channelMix[d].wfs + channelMix[d].sff;
-        return tot ? +(channelMix[d].sff / tot * 100).toFixed(1) : 0;
-    });
-
+// ─── Tab 1: WFS vs SFF — PID-style speed distribution chart ────────────────────
+/**
+ * speedData: { wfs: {speed: pct}, sff: {speed: pct}, total_wfs: n, total_sff: n }
+ * label: display name (division name or dept name)
+ */
+function mountSpeedMixChart(speedData, label) {
+    if (!speedData) return;
     const ctx = document.getElementById('catMixChart');
     if (!ctx) return;
     if (catChartInstances.mix) catChartInstances.mix.destroy();
 
+    const wfsData = SPEED_KEYS.map(k => speedData.wfs[k] || 0);
+    const sffData = SPEED_KEYS.map(k => speedData.sff[k] || 0);
+    const totalWfs = speedData.total_wfs || 0;
+    const totalSff = speedData.total_sff || 0;
+
     catChartInstances.mix = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: depts,
+            labels: SPEED_KEYS,
             datasets: [
-                { label: 'WFS %', data: wfsVals, backgroundColor: '#0053e2', borderRadius: 4 },
-                { label: 'SFF %', data: sffVals, backgroundColor: '#ffc220', borderRadius: 4 },
+                {
+                    label: 'WFS (Walmart Fulfilled)',
+                    data: wfsData,
+                    backgroundColor: '#0053e2',
+                    hoverBackgroundColor: '#003da8',
+                    borderRadius: 4,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8,
+                },
+                {
+                    label: 'SFF (Seller Fulfilled)',
+                    data: sffData,
+                    backgroundColor: '#ffc220',
+                    hoverBackgroundColor: '#e5ad1d',
+                    borderRadius: 4,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8,
+                },
             ],
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-                legend: { display: true },
+                legend: { display: false },
                 title: {
                     display: true,
-                    text: `WFS vs SFF Channel Mix by Department (% of Units)${
-                        !showAll && totalDepts > TOP_N ? ` — Top ${TOP_N} of ${totalDepts}` : ''
-                    }`,
+                    text: `WFS vs SFF Shipping Speed — ${label}`,
                     font: { size: 14, weight: 'bold' },
+                    padding: 16,
+                    color: '#2e2f32',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const total = ctx.dataset.label.includes('WFS') ? totalWfs : totalSff;
+                            const raw   = total ? Math.round(ctx.parsed.y / 100 * total) : 0;
+                            return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}% (${raw.toLocaleString()} units)`;
+                        },
+                    },
                 },
             },
             scales: {
-                x: { stacked: true, ticks: { maxRotation: 45 } },
-                y: { stacked: true, beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: '% of Channel Volume', font: { weight: 'bold' }, color: '#959595' },
+                    ticks: { callback: v => v + '%' },
+                    grid: { color: '#f2f2f2' },
+                    border: { display: false },
+                },
+                x: {
+                    title: { display: true, text: 'Shipping Speed', font: { weight: 'bold' }, color: '#959595' },
+                    grid: { display: false },
+                    border: { display: false },
+                },
             },
         },
     });
-
-    // Update Show All button
-    const btn = document.getElementById('mixShowAllBtn');
-    const wrap = document.getElementById('mixShowAllWrap');
-    if (wrap) wrap.classList.toggle('hidden', totalDepts <= TOP_N);
-    if (btn) btn.textContent = showAll ? 'Show Top 15' : 'Show All Departments';
 }
 
-// Stored channel mix for toggle
-let _lastChannelMix = null;
-function mixToggleAll() {
-    catShowAll = !catShowAll;
-    mountMixChart(_lastChannelMix, catShowAll);
+// Stored data for drill-down
+let _catDivisionSpeed = null;
+let _catDeptSpeed     = null;
+let _catActiveDept    = null;
+
+/** Render dept filter buttons below the WFS vs SFF chart. */
+function renderDeptFilterButtons(deptSpeed, activeDept) {
+    const wrap = document.getElementById('mixDeptButtons');
+    if (!wrap) return;
+    const depts = Object.keys(deptSpeed).sort(
+        (a, b) => ((deptSpeed[b].total_wfs || 0) + (deptSpeed[b].total_sff || 0))
+                - ((deptSpeed[a].total_wfs || 0) + (deptSpeed[a].total_sff || 0))
+    );
+    const btns = [{ label: 'All Depts', value: null }, ...depts.map(d => ({ label: d, value: d }))];
+    wrap.innerHTML = btns.map(({ label, value }) => {
+        const isActive = value === activeDept;
+        return `<button onclick="catDrillDept(${value ? `'${value}'` : 'null'})" 
+            class="px-3 py-1.5 rounded-full text-xs font-bold transition-all border
+                   ${isActive
+                       ? 'bg-wmt-blue text-white border-wmt-blue'
+                       : 'bg-white text-wmt-gray-160 border-gray-300 hover:border-wmt-blue hover:text-wmt-blue'}">
+            ${label}
+        </button>`;
+    }).join('');
+}
+
+/** Drill into a specific dept (or null = back to division total). */
+function catDrillDept(dept) {
+    _catActiveDept = dept;
+    const speedData = dept ? _catDeptSpeed[dept] : _catDivisionSpeed;
+    const label     = dept || 'All Departments';
+    mountSpeedMixChart(speedData, label);
+    renderDeptFilterButtons(_catDeptSpeed, dept);
 }
 
 // ─── Tab 2: Week over Week ────────────────────────────────────────────────────

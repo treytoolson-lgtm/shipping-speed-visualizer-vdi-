@@ -89,7 +89,60 @@ def get_seller_divisions(target_ids: list[str], days_back: int) -> list[str]:
     return [r.Division for r in rows if r.Division]
 
 
-# ─── 3. Full category analysis (heatmap + mix + WoW + offenders + benchmark) ───
+# ─── 3. ZIP3 → State mapping (USPS ranges) ─────────────────────────────────
+_ZIP3_STATE: dict[str, str] = {}
+for _z in range(10,  28): _ZIP3_STATE[str(_z).zfill(3)] = 'MA'
+for _z in range(28,  30): _ZIP3_STATE[str(_z).zfill(3)] = 'RI'
+for _z in range(30,  40): _ZIP3_STATE[str(_z).zfill(3)] = 'NH'
+for _z in range(50,  60): _ZIP3_STATE[str(_z).zfill(3)] = 'VT'
+for _z in range(60,  70): _ZIP3_STATE[str(_z).zfill(3)] = 'CT'
+for _z in range(70,  90): _ZIP3_STATE[str(_z).zfill(3)] = 'NJ'
+for _z in range(100, 150): _ZIP3_STATE[str(_z)] = 'NY'
+for _z in range(150, 197): _ZIP3_STATE[str(_z)] = 'PA'
+for _z in range(197, 200): _ZIP3_STATE[str(_z)] = 'DE'
+for _z in range(200, 220): _ZIP3_STATE[str(_z)] = 'MD'
+for _z in range(220, 247): _ZIP3_STATE[str(_z)] = 'VA'
+for _z in range(247, 270): _ZIP3_STATE[str(_z)] = 'WV'
+for _z in range(270, 290): _ZIP3_STATE[str(_z)] = 'NC'
+for _z in range(290, 300): _ZIP3_STATE[str(_z)] = 'SC'
+for _z in range(300, 320): _ZIP3_STATE[str(_z)] = 'GA'
+for _z in range(320, 350): _ZIP3_STATE[str(_z)] = 'FL'
+for _z in range(350, 370): _ZIP3_STATE[str(_z)] = 'AL'
+for _z in range(370, 386): _ZIP3_STATE[str(_z)] = 'TN'
+for _z in range(386, 398): _ZIP3_STATE[str(_z)] = 'MS'
+for _z in range(400, 430): _ZIP3_STATE[str(_z)] = 'KY'
+for _z in range(430, 460): _ZIP3_STATE[str(_z)] = 'OH'
+for _z in range(460, 480): _ZIP3_STATE[str(_z)] = 'IN'
+for _z in range(480, 500): _ZIP3_STATE[str(_z)] = 'MI'
+for _z in range(500, 530): _ZIP3_STATE[str(_z)] = 'IA'
+for _z in range(530, 550): _ZIP3_STATE[str(_z)] = 'WI'
+for _z in range(550, 568): _ZIP3_STATE[str(_z)] = 'MN'
+for _z in range(570, 578): _ZIP3_STATE[str(_z)] = 'SD'
+for _z in range(580, 589): _ZIP3_STATE[str(_z)] = 'ND'
+for _z in range(590, 600): _ZIP3_STATE[str(_z)] = 'MT'
+for _z in range(600, 630): _ZIP3_STATE[str(_z)] = 'IL'
+for _z in range(630, 659): _ZIP3_STATE[str(_z)] = 'MO'
+for _z in range(660, 680): _ZIP3_STATE[str(_z)] = 'KS'
+for _z in range(680, 694): _ZIP3_STATE[str(_z)] = 'NE'
+for _z in range(700, 715): _ZIP3_STATE[str(_z)] = 'LA'
+for _z in range(716, 730): _ZIP3_STATE[str(_z)] = 'AR'
+for _z in range(730, 750): _ZIP3_STATE[str(_z)] = 'OK'
+for _z in range(750, 800): _ZIP3_STATE[str(_z)] = 'TX'
+for _z in range(800, 817): _ZIP3_STATE[str(_z)] = 'CO'
+for _z in range(820, 832): _ZIP3_STATE[str(_z)] = 'WY'
+for _z in range(832, 839): _ZIP3_STATE[str(_z)] = 'ID'
+for _z in range(840, 848): _ZIP3_STATE[str(_z)] = 'UT'
+for _z in range(850, 866): _ZIP3_STATE[str(_z)] = 'AZ'
+for _z in range(870, 885): _ZIP3_STATE[str(_z)] = 'NM'
+for _z in range(889, 899): _ZIP3_STATE[str(_z)] = 'NV'
+for _z in range(900, 962): _ZIP3_STATE[str(_z)] = 'CA'
+for _z in range(967, 969): _ZIP3_STATE[str(_z)] = 'HI'
+for _z in range(970, 980): _ZIP3_STATE[str(_z)] = 'OR'
+for _z in range(980, 995): _ZIP3_STATE[str(_z)] = 'WA'
+for _z in range(995, 1000): _ZIP3_STATE[str(_z)] = 'AK'
+
+
+# ─── 4. Full category analysis ───────────────────────────────────────────────
 def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
     """
     Run all 4 queries for category mode and return structured data.
@@ -114,8 +167,11 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
       AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
     GROUP BY 1, 2, 3
     """
-    heatmap = {}      # dept → speed_bucket → units
-    channel_mix = {}  # dept → {wfs, sff}
+    heatmap      = {}   # dept → speed → units
+    channel_mix  = {}   # dept → {wfs, sff}  (totals, kept for compat)
+    dept_speed   = {}   # dept → {wfs: {speed: n}, sff: {speed: n}}
+    div_wfs_spd  = {k: 0.0 for k in SPEED_KEYS}  # division-level WFS by speed
+    div_sff_spd  = {k: 0.0 for k in SPEED_KEYS}  # division-level SFF by speed
 
     for row in client.query(q_heat, job_config=div_param).result():
         dept, speed, ch, units = row.dept, row.speed_bucket, row.channel, float(row.units or 0)
@@ -124,11 +180,41 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         if dept not in heatmap:
             heatmap[dept]     = {k: 0.0 for k in SPEED_KEYS}
             channel_mix[dept] = {"wfs": 0.0, "sff": 0.0}
+            dept_speed[dept]  = {
+                "wfs": {k: 0.0 for k in SPEED_KEYS},
+                "sff": {k: 0.0 for k in SPEED_KEYS},
+            }
         heatmap[dept][speed] += units
         if ch == "WFS":
-            channel_mix[dept]["wfs"] += units
+            channel_mix[dept]["wfs"]       += units
+            dept_speed[dept]["wfs"][speed] += units
+            div_wfs_spd[speed]             += units
         else:
-            channel_mix[dept]["sff"] += units
+            channel_mix[dept]["sff"]       += units
+            dept_speed[dept]["sff"][speed] += units
+            div_sff_spd[speed]             += units
+
+    # Convert dept_speed raw counts → percentages + include totals for sorting
+    dept_speed_pct = {}
+    for dept, ch_data in dept_speed.items():
+        wfs_total = sum(ch_data["wfs"].values())
+        sff_total = sum(ch_data["sff"].values())
+        dept_speed_pct[dept] = {
+            "wfs": {k: round(v / wfs_total * 100, 1) if wfs_total else 0 for k, v in ch_data["wfs"].items()},
+            "sff": {k: round(v / sff_total * 100, 1) if sff_total else 0 for k, v in ch_data["sff"].items()},
+            "total_wfs": int(wfs_total),
+            "total_sff": int(sff_total),
+        }
+
+    # Division-level channel speed (percentages)
+    wfs_total_div = sum(div_wfs_spd.values())
+    sff_total_div = sum(div_sff_spd.values())
+    division_speed = {
+        "wfs": {k: round(v / wfs_total_div * 100, 1) if wfs_total_div else 0 for k, v in div_wfs_spd.items()},
+        "sff": {k: round(v / sff_total_div * 100, 1) if sff_total_div else 0 for k, v in div_sff_spd.items()},
+        "total_wfs": int(wfs_total_div),
+        "total_sff": int(sff_total_div),
+    }
 
     # Convert heatmap raw counts to percentages per dept
     heatmap_pct = {}
@@ -171,29 +257,32 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         wow.append(entry)
     wow.reverse()  # chronological for the chart
 
-    # ─ Query 3: State-level speed distribution (for US map) ─────────────
+    # ─ Query 3: ZIP3-based state speed distribution (for US map) ──────────
     state_data = {}
     try:
         q_state = f"""
         SELECT
-            SHPNG_DEST_ST_CD AS state,
+            CAST(SHIP_TO_ZIP_CD3 AS STRING) AS zip3,
             {SPEED_SQL} AS speed_bucket,
             SUM(COALESCE(Total_Ordered_Units, 1)) AS units
         FROM {BASE_TABLE}
         WHERE {FULFMT_WHERE}
           AND Division = @division
-          AND SHPNG_DEST_ST_CD IS NOT NULL
+          AND SHIP_TO_ZIP_CD3 IS NOT NULL
           AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
         GROUP BY 1, 2
         """
-        state_raw = {}
+        state_raw: dict[str, dict] = {}
         for row in client.query(q_state, job_config=div_param).result():
-            st, speed, units = row.state, row.speed_bucket, float(row.units or 0)
-            if speed == 'Other' or not st:
+            zip3  = str(row.zip3 or '').zfill(3)
+            speed = row.speed_bucket
+            units = float(row.units or 0)
+            state = _ZIP3_STATE.get(zip3)
+            if speed == 'Other' or not state:
                 continue
-            if st not in state_raw:
-                state_raw[st] = {k: 0.0 for k in SPEED_KEYS}
-            state_raw[st][speed] += units
+            if state not in state_raw:
+                state_raw[state] = {k: 0.0 for k in SPEED_KEYS}
+            state_raw[state][speed] += units
         for st, buckets in state_raw.items():
             total = sum(buckets.values())
             if total == 0:
@@ -201,10 +290,10 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
             state_data[st] = {
                 **{k: round(v / total * 100, 1) for k, v in buckets.items()},
                 "total_units": int(total),
-                "dominant": max(buckets, key=buckets.get),
+                "dominant":    max(buckets, key=buckets.get),
             }
     except Exception as e:
-        logger.warning(f"State map query failed (column may differ): {e}")
+        logger.warning(f"State map query failed: {e}")
 
     # ─ Query 4: Benchmark — all L0 Divisions side-by-side ────────────────
     q_bench = f"""
@@ -243,9 +332,11 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         "period_type":     period_type,
         "analysis_period": period_labels.get(period_type, period_type),
         "date_range":      f"{days} days ending {now.strftime('%m/%d/%Y')}",
-        "heatmap":     heatmap_pct,
-        "channel_mix": channel_mix,
-        "wow":         wow,
-        "state_data":  state_data,
-        "benchmark":   benchmark,
+        "heatmap":        heatmap_pct,
+        "channel_mix":     channel_mix,
+        "division_speed":  division_speed,
+        "dept_speed":      dept_speed_pct,
+        "wow":             wow,
+        "state_data":      state_data,
+        "benchmark":       benchmark,
     }
