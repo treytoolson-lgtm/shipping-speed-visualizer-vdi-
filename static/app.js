@@ -9,8 +9,99 @@ let currentView = 'overall';
 let globalMonthlyData = {};
 let globalQuarterlyData = {};
 let globalYearlyData = {};
-let globalData = null;        // full API response
-let sortModeOn = false;       // sort/nonsort toggle state
+let globalData = null;
+let sortModeOn = false;
+
+// Mode + L0 filter state
+let currentMode = 'pid';          // 'pid' | 'category'
+let currentL0Filter = '';         // '' = Total Book, 'HOME' = filtered
+let lastPid = '';
+let lastPeriod = 'fytd';
+let lastMetric = 'promise';
+
+/** Toggle between PID and Category modes. */
+function setMode(mode) {
+    currentMode = mode;
+    const pidInputs = document.getElementById('pidInputs');
+    const catInputs = document.getElementById('categoryInputs');
+    const pidBtn    = document.getElementById('modePidBtn');
+    const catBtn    = document.getElementById('modeCatBtn');
+    const l0Bar     = document.getElementById('l0FilterBar');
+    const results   = document.getElementById('results');
+
+    if (mode === 'pid') {
+        pidInputs.classList.remove('hidden'); pidInputs.classList.add('flex');
+        catInputs.classList.add('hidden');    catInputs.classList.remove('flex');
+        pidBtn.classList.add('bg-wmt-blue', 'text-white');
+        pidBtn.classList.remove('bg-white', 'text-gray-500');
+        catBtn.classList.remove('bg-wmt-blue', 'text-white');
+        catBtn.classList.add('bg-white', 'text-gray-500');
+    } else {
+        catInputs.classList.remove('hidden'); catInputs.classList.add('flex');
+        pidInputs.classList.add('hidden');    pidInputs.classList.remove('flex');
+        catBtn.classList.add('bg-wmt-blue', 'text-white');
+        catBtn.classList.remove('bg-white', 'text-gray-500');
+        pidBtn.classList.remove('bg-wmt-blue', 'text-white');
+        pidBtn.classList.add('bg-white', 'text-gray-500');
+    }
+    l0Bar.classList.add('hidden');
+    results.innerHTML = '';
+    currentL0Filter = '';
+}
+
+/** Render L0 filter buttons below PID results. */
+function renderL0FilterBar(divisions, activeFilter) {
+    const bar  = document.getElementById('l0FilterBar');
+    const btns = document.getElementById('l0FilterButtons');
+    if (!divisions || divisions.length <= 1) { bar.classList.add('hidden'); return; }
+
+    const all = ['Total Book', ...divisions];
+    btns.innerHTML = all.map(div => {
+        const isActive = (div === 'Total Book' && !activeFilter) || div === activeFilter;
+        return `<button
+            onclick="applyL0Filter('${div === 'Total Book' ? '' : div}')"
+            class="px-4 py-1.5 rounded-full text-sm font-bold transition-all border
+                   ${isActive ? 'bg-wmt-blue text-white border-wmt-blue' : 'bg-white text-wmt-gray-160 border-gray-300 hover:border-wmt-blue hover:text-wmt-blue'}">
+            ${div}
+        </button>`;
+    }).join('');
+    bar.classList.remove('hidden');
+}
+
+/** Re-fetch PID data with a specific L0 Division filter applied. */
+async function applyL0Filter(division) {
+    currentL0Filter = division;
+    const errorMsg  = document.getElementById('errorMsg');
+    const loading   = document.getElementById('loading');
+    const results   = document.getElementById('results');
+
+    errorMsg.classList.add('hidden');
+    results.innerHTML = '';
+    loading.classList.remove('hidden');
+
+    try {
+        const resp = await fetch('/api/shipping-speed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pid: lastPid,
+                period_type: lastPeriod,
+                metric_type: lastMetric,
+                division_filter: division,
+            }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'Failed to fetch data');
+        loading.classList.add('hidden');
+        displayResults(data);
+        // Re-render filter bar with updated active state
+        renderL0FilterBar(data.seller_divisions || [], division);
+    } catch (err) {
+        loading.classList.add('hidden');
+        errorMsg.textContent = `Error: ${err.message}`;
+        errorMsg.classList.remove('hidden');
+    }
+}
 
 const SPEED_LABELS = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
 
@@ -214,12 +305,12 @@ function switchView(viewName) {
 }
 
 async function analyzeShippingSpeed() {
-    const pid       = document.getElementById('pid').value.trim();
+    const pid        = document.getElementById('pid').value.trim();
     const periodType = document.getElementById('time_period').value;
-    const metricType = document.getElementById('metric_type').value;
-    const errorMsg  = document.getElementById('errorMsg');
-    const loading   = document.getElementById('loading');
-    const results   = document.getElementById('results');
+    const metricType = 'promise'; // hardcoded — no UI dropdown
+    const errorMsg   = document.getElementById('errorMsg');
+    const loading    = document.getElementById('loading');
+    const results    = document.getElementById('results');
     const analyzeBtn = document.getElementById('analyzeBtn');
 
     if (!pid) {
@@ -228,11 +319,18 @@ async function analyzeShippingSpeed() {
         return;
     }
 
+    // Save state for L0 filter re-fetches
+    lastPid    = pid;
+    lastPeriod = periodType;
+    lastMetric = metricType;
+    currentL0Filter = '';
+
     errorMsg.classList.add('hidden');
     results.innerHTML = '';
+    document.getElementById('l0FilterBar').classList.add('hidden');
     loading.classList.remove('hidden');
     analyzeBtn.disabled = true;
-    analyzeBtn.innerHTML = `Analyze
+    analyzeBtn.innerHTML = `Analyzing
         <svg class="animate-spin-spark h-5 w-5 text-wmt-spark" viewBox="0 0 24 24" fill="currentColor">
             <g>
                 <rect x="11" y="1" width="2" height="8" rx="1"/>
@@ -248,12 +346,14 @@ async function analyzeShippingSpeed() {
         const response = await fetch('/api/shipping-speed', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pid, period_type: periodType, metric_type: metricType }),
+            body: JSON.stringify({ pid, period_type: periodType, metric_type: metricType, division_filter: '' }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Failed to fetch data');
         loading.classList.add('hidden');
         displayResults(data);
+        // Show L0 filter bar if seller spans multiple divisions
+        renderL0FilterBar(data.seller_divisions || [], '');
     } catch (error) {
         loading.classList.add('hidden');
         errorMsg.textContent = `Error: ${error.message}`;
@@ -321,6 +421,7 @@ function displayResults(data) {
             <div class="flex flex-wrap items-center gap-2 mb-2">
                 <h2 class="text-xl font-bold text-wmt-gray-160">Results for: <span class="text-wmt-blue">${data.seller_name}</span> <span class="text-gray-400 text-sm font-normal">(PID: ${data.pid})</span></h2>
                 ${programBadges}
+                ${data.division_filter ? `<span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold bg-wmt-blue/10 text-wmt-blue border border-wmt-blue/20">🏷️ ${data.division_filter}</span>` : ''}
             </div>
             <p class="text-wmt-gray-160 text-sm mb-6 font-medium">📅 Date Range: <span class="font-bold">${data.date_range}</span> <span class="text-gray-400 text-xs">(${data.analysis_period} • <span class="text-wmt-blue font-bold">${data.metric_label || 'Actual Speed'}</span>)</span></p>
 
@@ -552,7 +653,7 @@ function showYearlyChart(fyName) {
     });
 }
 
-// Enter key shortcut
+// Enter key shortcuts + load L0 divisions on startup
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pid').addEventListener('keypress', e => {
         if (e.key === 'Enter') analyzeShippingSpeed();
