@@ -358,20 +358,39 @@ function mountWowChart(wow) {
     });
 }
 
-// ─── Tab 3: US Geographic Heatmap ────────────────────────────────────────────
-async function mountUSMap(stateData) {
+// ─── Tab 3: US ZIP-level dot map ──────────────────────────────────────────────────
+let _zipCentroids = null; // cache after first load
+
+async function mountUSMap(zipData) {
     const container = document.getElementById('cat-us-map');
     if (!container) return;
 
-    if (!Object.keys(stateData).length) {
+    if (!Object.keys(zipData).length) {
         container.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No geographic data available for this division.</p>';
         return;
     }
 
     try {
-        const us = await d3.json('/static/vendor/us-states.json');
-        const width = container.clientWidth || 800;
-        const height = Math.round(width * 0.6);
+        // Load both files in parallel, centroid JSON cached after first load
+        const [us, centroids] = await Promise.all([
+            d3.json('/static/vendor/us-states.json'),
+            _zipCentroids
+                ? Promise.resolve(_zipCentroids)
+                : d3.json('/static/vendor/us_zip_centroids.json').then(c => { _zipCentroids = c; return c; }),
+        ]);
+
+        // Clear previous render
+        container.innerHTML = '';
+        d3.select(container).style('position', 'relative');
+
+        const width  = container.clientWidth || 800;
+        const height = Math.round(width * 0.62);
+
+        const projection = d3.geoAlbersUsa()
+            .scale(width * 1.25)
+            .translate([width / 2, height / 2]);
+
+        const path = d3.geoPath().projection(projection);
 
         const svg = d3.select(container)
             .append('svg')
@@ -379,11 +398,15 @@ async function mountUSMap(stateData) {
             .attr('preserveAspectRatio', 'xMidYMid meet')
             .style('width', '100%');
 
-        const projection = d3.geoAlbersUsa()
-            .scale(width * 1.25)
-            .translate([width / 2, height / 2]);
-
-        const path = d3.geoPath().projection(projection);
+        // State outlines as a neutral base
+        svg.append('g')
+            .selectAll('path')
+            .data(topojson.feature(us, us.objects.states).features)
+            .join('path')
+            .attr('d', path)
+            .attr('fill', '#f8f9fa')
+            .attr('stroke', '#cbd5e1')
+            .attr('stroke-width', 0.6);
 
         // Tooltip
         const tip = d3.select(container)
@@ -395,63 +418,64 @@ async function mountUSMap(stateData) {
             .style('border-radius', '6px')
             .style('font-size', '12px')
             .style('pointer-events', 'none')
-            .style('display', 'none');
+            .style('display', 'none')
+            .style('white-space', 'nowrap');
 
-        d3.select(container).style('position', 'relative');
+        // Size scale: log-based radius 2–8px
+        const volumes = Object.values(zipData).map(d => d.total_units).filter(Boolean);
+        const maxVol  = Math.max(...volumes);
+        const rScale  = v => Math.max(2, Math.min(8, 2 + 6 * Math.log1p(v) / Math.log1p(maxVol)));
 
-        const stateNames = {
-            AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
-            CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',
-            HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',
-            KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',
-            MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
-            MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
-            NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',
-            ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',
-            RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',
-            TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',
-            WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'D.C.',
-        };
+        // Build dot data — only ZIPs we have centroids for
+        const dots = Object.entries(zipData)
+            .filter(([z]) => centroids[z])
+            .map(([z, d]) => {
+                const [lat, lon] = centroids[z];
+                const proj = projection([lon, lat]);
+                return proj ? { zip: z, x: proj[0], y: proj[1], ...d } : null;
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.total_units - b.total_units); // draw small dots first so big ones are on top
 
         svg.append('g')
-            .selectAll('path')
-            .data(topojson.feature(us, us.objects.states).features)
-            .join('path')
-            .attr('d', path)
-            .attr('fill', d => {
-                // Match by state name from properties
-                const stateName = d.properties.name;
-                // Find matching state code
-                const stateCode = Object.entries(stateNames).find(([, n]) => n === stateName)?.[0];
-                const sd = stateCode ? stateData[stateCode] : null;
-                return sd ? SPEED_COLORS[sd.dominant] || '#e2e8f0' : '#e2e8f0';
-            })
+            .selectAll('circle')
+            .data(dots)
+            .join('circle')
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y)
+            .attr('r',  d => rScale(d.total_units))
+            .attr('fill',    d => SPEED_COLORS[d.dominant] || '#94a3b8')
+            .attr('opacity', 0.78)
             .attr('stroke', '#fff')
-            .attr('stroke-width', 0.5)
+            .attr('stroke-width', 0.4)
             .on('mouseover', function(event, d) {
-                d3.select(this).attr('opacity', 0.75);
-                const stateName = d.properties.name;
-                const stateCode = Object.entries(stateNames).find(([, n]) => n === stateName)?.[0];
-                const sd = stateCode ? stateData[stateCode] : null;
-                if (!sd) return;
+                d3.select(this).attr('opacity', 1).attr('stroke-width', 1.5);
                 const rows = SPEED_KEYS.map(k =>
-                    `<div style="color:${SPEED_COLORS[k]}">${k}: ${sd[k] || 0}%</div>`
+                    `<div style="color:${SPEED_COLORS[k]}">${k}: ${d[k] || 0}%</div>`
                 ).join('');
                 tip.style('display', 'block')
-                    .html(`<strong>${stateName}</strong><br>${rows}<div style="color:#aaa;font-size:10px">${sd.total_units.toLocaleString()} units</div>`);
+                   .html(`<strong>ZIP ${d.zip}</strong><br>${rows}<div style="color:#aaa;font-size:10px">${d.total_units.toLocaleString()} units</div>`);
             })
             .on('mousemove', function(event) {
                 const rect = container.getBoundingClientRect();
-                tip.style('left', (event.clientX - rect.left + 10) + 'px')
-                    .style('top',  (event.clientY - rect.top  - 40) + 'px');
+                tip.style('left', (event.clientX - rect.left + 12) + 'px')
+                   .style('top',  (event.clientY - rect.top  - 50) + 'px');
             })
             .on('mouseout', function() {
-                d3.select(this).attr('opacity', 1);
+                d3.select(this).attr('opacity', 0.78).attr('stroke-width', 0.4);
                 tip.style('display', 'none');
             });
 
+        // Dot count badge
+        const matched = dots.length;
+        const total   = Object.keys(zipData).length;
+        d3.select(container)
+            .append('p')
+            .attr('class', 'text-xs text-gray-400 text-right mt-1')
+            .text(`${matched.toLocaleString()} of ${total.toLocaleString()} ZIPs plotted — dot size = order volume`);
+
     } catch (e) {
-        console.error('US map render error:', e);
+        console.error('ZIP dot map error:', e);
         container.innerHTML = '<p class="text-sm text-red-400 text-center py-8">Map could not be rendered.</p>';
     }
 }

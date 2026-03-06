@@ -257,43 +257,42 @@ def get_category_analysis(division: str, period_type: str = "fytd") -> dict:
         wow.append(entry)
     wow.reverse()  # chronological for the chart
 
-    # ─ Query 3: ZIP3-based state speed distribution (for US map) ──────────
+    # ─ Query 3: ZIP5-level speed distribution (for dot map) ───────────────
     state_data = {}
     try:
-        q_state = f"""
+        q_zip = f"""
         SELECT
-            CAST(SHIP_TO_ZIP_CD3 AS STRING) AS zip3,
+            LPAD(CAST(SHIP_TO_ZIP_CD AS STRING), 5, '0') AS zip5,
             {SPEED_SQL} AS speed_bucket,
             SUM(COALESCE(Total_Ordered_Units, 1)) AS units
         FROM {BASE_TABLE}
         WHERE {FULFMT_WHERE}
           AND Division = @division
-          AND SHIP_TO_ZIP_CD3 IS NOT NULL
+          AND SHIP_TO_ZIP_CD IS NOT NULL
           AND ORDER_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL {days} DAY)
         GROUP BY 1, 2
         """
-        state_raw: dict[str, dict] = {}
-        for row in client.query(q_state, job_config=div_param).result():
-            zip3  = str(row.zip3 or '').zfill(3)
+        zip_raw: dict[str, dict] = {}
+        for row in client.query(q_zip, job_config=div_param).result():
+            zip5  = str(row.zip5 or '').zfill(5)
             speed = row.speed_bucket
             units = float(row.units or 0)
-            state = _ZIP3_STATE.get(zip3)
-            if speed == 'Other' or not state:
+            if speed == 'Other' or not zip5:
                 continue
-            if state not in state_raw:
-                state_raw[state] = {k: 0.0 for k in SPEED_KEYS}
-            state_raw[state][speed] += units
-        for st, buckets in state_raw.items():
+            if zip5 not in zip_raw:
+                zip_raw[zip5] = {k: 0.0 for k in SPEED_KEYS}
+            zip_raw[zip5][speed] += units
+        for z, buckets in zip_raw.items():
             total = sum(buckets.values())
             if total == 0:
                 continue
-            state_data[st] = {
+            state_data[z] = {
                 **{k: round(v / total * 100, 1) for k, v in buckets.items()},
                 "total_units": int(total),
                 "dominant":    max(buckets, key=buckets.get),
             }
     except Exception as e:
-        logger.warning(f"State map query failed: {e}")
+        logger.warning(f"ZIP dot map query failed: {e}")
 
     # ─ Query 4: Benchmark — all L0 Divisions side-by-side ────────────────
     q_bench = f"""
