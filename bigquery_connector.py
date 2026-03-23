@@ -6,8 +6,6 @@ Source: wmt-cp-prod.e2e_fmt_cp.CTP (Committed to Promise — order-line level)
 """
 
 import os
-import json
-from pathlib import Path
 from google.cloud import bigquery
 from datetime import datetime, timedelta
 import logging
@@ -71,39 +69,32 @@ class BigQueryConnector:
         self.table_id = "CTP"
 
     def get_client(self):
-        """Lazy-initialize BigQuery client."""
+        """Lazy-initialize BigQuery client with auto-refreshing gcloud credentials."""
         if self.client is None:
+            project_id = (
+                os.environ.get("GOOGLE_CLOUD_PROJECT")
+                or "wmt-marketplace-analytics"
+            )
+
+            # Use auto-refreshing gcloud user credentials (same as bq CLI).
+            # ADC often lacks serviceusage.serviceUsageConsumer on Walmart projects.
             try:
-                # 1. Try environment variable
-                project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-
-                # 2. Try to find it in gcloud config if not set
-                if not project_id:
-                    try:
-                        gcloud_config = Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
-                        if gcloud_config.exists():
-                            with open(gcloud_config, "r") as f:
-                                data = json.load(f)
-                                project_id = data.get("quota_project_id")
-                                if project_id:
-                                    logger.info(f"Found project ID from gcloud config: {project_id}")
-                    except Exception as e:
-                        logger.warning(f"Could not read gcloud config: {e}")
-
-                # 3. Fallback to wmt-marketplace-analytics
-                if not project_id:
-                    project_id = "wmt-marketplace-analytics"
-                    logger.info(f"Using fallback project ID: {project_id}")
-
-                # Set the project explicitly
-                self.client = bigquery.Client(project=project_id)
-                logger.info(f"BigQuery client initialized with billing project: {self.client.project}")
+                from gcloud_credentials import GcloudUserCredentials
+                creds = GcloudUserCredentials()
+                self.client = bigquery.Client(credentials=creds, project=project_id)
+                logger.info(f"BQ client ready (gcloud token, project={project_id})")
+                print(f"[OK] Authenticated using gcloud user credentials (project={project_id})")
             except Exception as e:
-                logger.error(f"Failed to initialize BigQuery client: {e}")
-                print("\n[ERROR] Could not determine a default Google Cloud project.")
-                print("Please run: gcloud config set project YOUR_PROJECT_ID")
-                print("Example: gcloud config set project wmt-marketplace-analytics\n")
-                raise
+                logger.warning(f"gcloud token auth failed ({e}), falling back to ADC")
+                try:
+                    self.client = bigquery.Client(project=project_id)
+                    logger.info(f"BQ client ready (ADC, project={project_id})")
+                    print(f"[OK] Authenticated using ADC (project={project_id})")
+                except Exception as adc_err:
+                    logger.error(f"All auth methods failed: {adc_err}")
+                    print("\n[ERROR] Could not authenticate to BigQuery.")
+                    print("Please run: gcloud auth login\n")
+                    raise
         return self.client
 
     def _resolve_legacy_id(self, pid: str) -> tuple[str, str]:
