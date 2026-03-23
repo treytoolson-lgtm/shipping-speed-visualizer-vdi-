@@ -238,6 +238,13 @@ class BigQueryConnector:
         """
         Get shipping speed distribution for a seller from CTP.
         
+        **Sort/Non-Sort Classification Enhancement (GTIN-Level)**:
+        - PRIMARY SOURCE: AG_Inventory_SB_Daily.expected_item_type (GTIN-level, daily snapshot)
+        - FALLBACK: CTP.Channel_Group4 (order-level, if GTIN not in inventory)
+        - Rationale: GTIN-level classification is more accurate and consistent
+          across all orders for the same item, while Channel_Group4 can vary
+          by FC routing logic.
+        
         Args:
             pid: Seller/Partner ID
             period_type: 'fytd', 'last_1_fy', 'last_2_fys'
@@ -304,7 +311,22 @@ class BigQueryConnector:
 
 
         query = f"""
-        WITH ctp_filtered AS (
+        -- GTIN-level sort/non-sort classification from AG_Inventory_SB_Daily
+        -- This is the most accurate source for item type (Sortable vs Nonsort)
+        WITH gtin_classification AS (
+            SELECT gtin, expected_item_type
+            FROM (
+                SELECT
+                    gtin,
+                    expected_item_type,
+                    ROW_NUMBER() OVER(PARTITION BY gtin ORDER BY cal_dt DESC) AS rn
+                FROM `wmt-wfs-analytics.WW_WFS_PROD_TABLES.AG_Inventory_SB_Daily`
+                WHERE cal_dt = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+                  AND expected_item_type IS NOT NULL
+            )
+            WHERE rn = 1
+        ),
+        ctp_filtered AS (
             SELECT
                 -- Use Channel_Group3 for WFS/SFF split
                 CASE 
@@ -312,8 +334,12 @@ class BigQueryConnector:
                     ELSE 'SFF' 
                 END AS mp_channel,
                 
-                -- Use Channel_Group4 for Sort Type (FC_WFS_Sort / FC_WFS_NS)
+                -- PRIMARY: Use GTIN-level expected_item_type from AG_Inventory_SB_Daily
+                -- FALLBACK: Channel_Group4 if GTIN lookup misses
                 CASE
+                    WHEN gc.expected_item_type = 'Sortable' THEN 'sort'
+                    WHEN gc.expected_item_type = 'Nonsort' THEN 'ns'
+                    -- Fallback to Channel_Group4 if GTIN not found in AG_Inventory_SB_Daily
                     WHEN Channel_Group4 = 'FC_WFS_Sort' THEN 'sort'
                     WHEN Channel_Group4 = 'FC_WFS_NS' THEN 'ns'
                     ELSE 'unknown'
@@ -335,8 +361,14 @@ class BigQueryConnector:
                 END AS speed_bucket,
 
                 COALESCE(Division, '') AS division,
-                COALESCE(Total_Ordered_Units, 1) AS units
-            FROM `{self.project}.{self.dataset_id}.{self.table_id}`
+                COALESCE(Total_Ordered_Units, 1) AS units,
+                
+                -- Debug fields to compare GTIN lookup vs Channel_Group4
+                gc.expected_item_type AS gtin_item_type,
+                Channel_Group4 AS channel_group4_raw
+            FROM `{self.project}.{self.dataset_id}.{self.table_id}` ctp
+            -- LEFT JOIN to GTIN classification (not all GTINs may be in inventory snapshot)
+            LEFT JOIN gtin_classification gc ON ctp.GTIN = gc.gtin
             WHERE
                 FULFMT_TYPE = 'MP'
                 AND (
@@ -355,7 +387,10 @@ class BigQueryConnector:
             year,
             speed_bucket,
             division,
-            SUM(units) AS unit_count
+            SUM(units) AS unit_count,
+            -- Diagnostic metrics for GTIN lookup effectiveness
+            COUNTIF(gtin_item_type IS NOT NULL) AS gtin_lookup_hits,
+            COUNTIF(gtin_item_type IS NULL) AS gtin_lookup_misses
         FROM ctp_filtered
         WHERE speed_bucket != 'Other'
         GROUP BY 1, 2, 3, 4, 5, 6
@@ -370,6 +405,17 @@ class BigQueryConnector:
                 ]
             )
             results = list(client.query(query, job_config=job_config).result())
+
+            # --- GTIN Lookup Diagnostics ---
+            total_gtin_hits = sum(row.gtin_lookup_hits for row in results if hasattr(row, 'gtin_lookup_hits'))
+            total_gtin_misses = sum(row.gtin_lookup_misses for row in results if hasattr(row, 'gtin_lookup_misses'))
+            total_records = total_gtin_hits + total_gtin_misses
+            if total_records > 0:
+                gtin_coverage_pct = (total_gtin_hits / total_records) * 100
+                logger.info(f"[GTIN Lookup] Coverage: {gtin_coverage_pct:.1f}% ({total_gtin_hits:,} hits / {total_gtin_misses:,} misses)")
+                print(f"[GTIN Lookup] ✅ {gtin_coverage_pct:.1f}% coverage ({total_gtin_hits:,} GTINs found in AG_Inventory_SB_Daily, {total_gtin_misses:,} fell back to Channel_Group4)")
+            else:
+                logger.warning("[GTIN Lookup] No diagnostic data available")
 
             # --- Accumulators ---
             wfs_data, sff_data = _init_speed_dict(), _init_speed_dict()
