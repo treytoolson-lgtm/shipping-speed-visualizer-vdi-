@@ -73,13 +73,16 @@ function renderL0FilterBar(divisions, activeFilter) {
 function applyL0Filter(division) {
     currentL0Filter = division;
 
-    let viewData = globalData;
+    // Always derive view from the pristine base fetch, never from the
+    // already-filtered globalData (which has monthly/quarterly nulled out).
+    const base = _baseGlobalData || globalData;
+    let viewData = base;
 
-    if (division && globalData.division_data && globalData.division_data[division]) {
-        const dd = globalData.division_data[division];
+    if (division && base.division_data && base.division_data[division]) {
+        const dd = base.division_data[division];
         // Build a slimmed-down view from cached division data (no monthly/quarterly)
         viewData = {
-            ...globalData,
+            ...base,
             wfs_data:         dd.wfs_data,
             sff_data:         dd.sff_data,
             wfs_sort_data:    dd.wfs_sort_data,
@@ -88,7 +91,7 @@ function applyL0Filter(division) {
             sff_nonsort_data: null,
             total_wfs_orders: dd.total_wfs,
             total_sff_orders: dd.total_sff,
-            // Hide time-series tabs when filtered — data is total book only
+            // Hide time-series tabs when filtered — division data is aggregate only
             monthly_data:   null,
             quarterly_data: null,
             yearly_data:    null,
@@ -97,7 +100,7 @@ function applyL0Filter(division) {
 
     displayResults(viewData);
     // Re-render filter bar so active state updates
-    renderL0FilterBar(globalData.seller_divisions || [], division);
+    renderL0FilterBar(base.seller_divisions || [], division);
 }
 
 const SPEED_LABELS = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
@@ -178,7 +181,7 @@ function buildChartOptions(titleText) {
                 callbacks: {
                     label: ctx => {
                         const raw = ctx.dataset.rawCounts ? ctx.dataset.rawCounts[ctx.dataIndex] : 0;
-                        return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}% (${Number(raw).toLocaleString()} orders)`;
+                        return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}% (${Number(raw).toLocaleString()} units)`;
                     }
                 },
             },
@@ -348,6 +351,8 @@ async function analyzeShippingSpeed() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Failed to fetch data');
         loading.classList.add('hidden');
+        // Store the pristine full response so category filters can always restore it
+        _baseGlobalData = data;
         displayResults(data);
         // Show L0 filter bar if seller spans multiple divisions
         renderL0FilterBar(data.seller_divisions || [], '');
@@ -556,7 +561,7 @@ function displayOverallChart(data) {
                 data.sff_sort_data, data.sff_nonsort_data
             ),
         },
-        options: buildChartOptions(`Overall Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
+        options: buildChartOptions(`Overall Shipping Speed Distribution (Total Units: ${totalOrders.toLocaleString()})`),  
     });
 }
 
@@ -586,7 +591,7 @@ function showQuarterlyChart(quarterName) {
                 qd.sff_sort_breakdown || {}, qd.sff_nonsort_breakdown || {}
             ),
         },
-        options: buildChartOptions(`${quarterName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
+        options: buildChartOptions(`${quarterName} — Shipping Speed Distribution (Total Units: ${totalOrders.toLocaleString()})`), 
     });
 }
 
@@ -616,7 +621,7 @@ function showMonthlyChart(monthName) {
                 md.sff_sort_breakdown || {}, md.sff_nonsort_breakdown || {}
             ),
         },
-        options: buildChartOptions(`${monthName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
+        options: buildChartOptions(`${monthName} — Shipping Speed Distribution (Total Units: ${totalOrders.toLocaleString()})`), 
     });
 }
 
@@ -646,7 +651,7 @@ function showYearlyChart(fyName) {
                 yd.sff_sort_breakdown || {}, yd.sff_nonsort_breakdown || {}
             ),
         },
-        options: buildChartOptions(`${fyName} — Shipping Speed Distribution (Total Orders: ${totalOrders.toLocaleString()})`),
+        options: buildChartOptions(`${fyName} — Shipping Speed Distribution (Total Units: ${totalOrders.toLocaleString()})`),  
     });
 }
 
