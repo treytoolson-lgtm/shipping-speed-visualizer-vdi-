@@ -5,6 +5,14 @@ Shipping Speed Visualizer
 Analyze WFS vs SFF shipping speeds by seller/PID
 """
 
+import sys
+
+# Force UTF-8 on Windows (charmap doesn't support emoji in print statements)
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
