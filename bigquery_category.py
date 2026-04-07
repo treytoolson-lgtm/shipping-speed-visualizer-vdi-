@@ -13,19 +13,21 @@ from bigquery_connector import BigQueryConnector
 
 logger = logging.getLogger(__name__)
 
-SPEED_KEYS   = ["1-day", "2-day", "3-day", "4-7 Day", "7+ Day"]
+SPEED_KEYS   = ["1 Day", "2 Days", "3 Days", "4 Days", "5 Days", "6-7 Days", "8+ Days"]
 SPEED_SQL    = """
     CASE
-        WHEN Promise_Group IN ('Same Day', 'Next Day') THEN '1-day'
-        WHEN Promise_Group = '2 Day'   THEN '2-day'
-        WHEN Promise_Group = '3 Day'   THEN '3-day'
-        WHEN Promise_Group = '4-7 Day' THEN '4-7 Day'
-        WHEN Promise_Group = '7+ Day'  THEN '7+ Day'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) <= 1 THEN '1 Day'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 2  THEN '2 Days'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 3  THEN '3 Days'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 4  THEN '4 Days'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 5  THEN '5 Days'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) IN (6, 7) THEN '6-7 Days'
+        WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) >= 8 THEN '8+ Days'
         ELSE 'Other'
     END
 """
 BASE_TABLE   = "`wmt-cp-prod.e2e_fmt_cp.CTP`"
-FULFMT_WHERE = "FULFMT_TYPE = 'MP'"
+FULFMT_WHERE = "FULFMT_TYPE = 'MP' AND ACTL_DLVR_DT IS NOT NULL AND ACTL_DLVR_DT <= CURRENT_DATE() AND DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) >= 0"
 
 
 def _days_back(period_type: str) -> int:

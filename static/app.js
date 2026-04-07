@@ -18,7 +18,6 @@ let currentMode = 'pid';          // 'pid' | 'category'
 let currentL0Filter = '';         // '' = Total Book, 'HOME' = filtered
 let lastPid = '';
 let lastPeriod = 'fytd';
-let lastMetric = 'promise';
 
 /** Toggle between PID and Category modes. */
 function setMode(mode) {
@@ -103,7 +102,7 @@ function applyL0Filter(division) {
     renderL0FilterBar(base.seller_divisions || [], division);
 }
 
-const SPEED_LABELS = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
+const SPEED_LABELS = ['1 Day', '2 Days', '3 Days', '4 Days', '5 Days', '6-7 Days', '8+ Days'];
 
 // Walmart palette constants
 const COLORS = {
@@ -307,7 +306,6 @@ function switchView(viewName) {
 async function analyzeShippingSpeed() {
     const pid        = document.getElementById('pid').value.trim();
     const periodType = document.getElementById('time_period').value;
-    const metricType = 'promise'; // hardcoded — no UI dropdown
     const errorMsg   = document.getElementById('errorMsg');
     const loading    = document.getElementById('loading');
     const results    = document.getElementById('results');
@@ -322,7 +320,6 @@ async function analyzeShippingSpeed() {
     // Save state for L0 filter re-fetches
     lastPid    = pid;
     lastPeriod = periodType;
-    lastMetric = metricType;
     currentL0Filter = '';
 
     errorMsg.classList.add('hidden');
@@ -346,7 +343,7 @@ async function analyzeShippingSpeed() {
         const response = await fetch('/api/shipping-speed', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pid, period_type: periodType, metric_type: metricType, division_filter: '' }),
+            body: JSON.stringify({ pid, period_type: periodType, division_filter: '' }),
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || 'Failed to fetch data');

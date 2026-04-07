@@ -6,20 +6,24 @@ let catAllDepts = [];         // full dept list for Show All toggle
 let catShowAll  = false;      // toggle state
 const TOP_N = 15;
 
-const SPEED_KEYS   = ['1-day', '2-day', '3-day', '4-7 Day', '7+ Day'];
+const SPEED_KEYS   = ['1 Day', '2 Days', '3 Days', '4 Days', '5 Days', '6-7 Days', '8+ Days'];
 const SPEED_COLORS = {
-    '1-day':   '#2a8703',
-    '2-day':   '#76c043',
-    '3-day':   '#ffc220',
-    '4-7 Day': '#f47321',
-    '7+ Day':  '#ea1100',
+    '1 Day':    '#2a8703',
+    '2 Days':   '#4ca820',
+    '3 Days':   '#76c043',
+    '4 Days':   '#ffc220',
+    '5 Days':   '#f49d21',
+    '6-7 Days': '#ea7100',
+    '8+ Days':  '#ea1100',
 };
 const SPEED_LABELS_MAP = {
-    '1-day':   '1-day (Green)',
-    '2-day':   '2-day (Light Green)',
-    '3-day':   '3-day (Yellow)',
-    '4-7 Day': '4-7 Day (Orange)',
-    '7+ Day':  '7+ Day (Red)',
+    '1 Day':    '1 Day (Green)',
+    '2 Days':   '2 Days (Light Green)',
+    '3 Days':   '3 Days (Lighter Green)',
+    '4 Days':   '4 Days (Yellow)',
+    '5 Days':   '5 Days (Orange)',
+    '6-7 Days': '6-7 Days (Dark Orange)',
+    '8+ Days':  '8+ Days (Red)',
 };
 
 // Tab order per spec

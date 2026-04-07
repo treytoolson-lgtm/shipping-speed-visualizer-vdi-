@@ -50,7 +50,6 @@ class ShippingSpeedRequest(BaseModel):
     """Request model for shipping speed analysis"""
     pid: str
     period_type: str = "fytd"
-    metric_type: str = "actual"
     division_filter: str = ""   # L0 category filter (empty = Total Book)
 
 
@@ -113,7 +112,6 @@ def get_shipping_speed(request: ShippingSpeedRequest):
             analysis = bq.get_shipping_speed_distribution(
                 pid=request.pid.strip(),
                 period_type=request.period_type,
-                metric_type=request.metric_type,
                 division_filter=request.division_filter.strip(),
             )
             print(f"[DEBUG] Successfully fetched analysis data", flush=True)

@@ -12,8 +12,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# UPDATED SPEED KEYS based on Promise Groups
-SPEED_KEYS = ["1-day", "2-day", "3-day", "4-7 Day", "7+ Day"]
+# UPDATED SPEED KEYS (Actual Click-to-Doorstep)
+SPEED_KEYS = ["1 Day", "2 Days", "3 Days", "4 Days", "5 Days", "6-7 Days", "8+ Days"]
 
 
 def _init_speed_dict() -> dict:
@@ -225,7 +225,7 @@ class BigQueryConnector:
 
         return programs
 
-    def get_shipping_speed_distribution(self, pid: str, period_type: str = "fytd", metric_type: str = "actual", division_filter: str = "") -> dict:
+    def get_shipping_speed_distribution(self, pid: str, period_type: str = "fytd", division_filter: str = "") -> dict:
         """
         Get shipping speed distribution for a seller from CTP.
         
@@ -239,20 +239,12 @@ class BigQueryConnector:
         Args:
             pid: Seller/Partner ID
             period_type: 'fytd', 'last_1_fy', 'last_2_fys'
-            metric_type: 'actual' (Time in Transit) or 'promise' (Customer Promise)
             division_filter: Optional L0 Division to filter by (e.g. 'HOME')
         """
-        end_date = datetime.now()
+        # Trim edge-case in-transit packages by looking 3 days back as our 'now'
+        end_date = datetime.now() - timedelta(days=3)
         
-        # Determine column based on metric type
-        # Actual: CALENDAR_DAY_Actual_TNT_final
-        # Promise: CALENDAR_DAY_CTP_Post_Consolidation_final (What customer sees)
-        if metric_type == "promise":
-            speed_col = "CALENDAR_DAY_CTP_Post_Consolidation_final"
-            metric_label = "Promise Speed"
-        else:
-            speed_col = "CALENDAR_DAY_Actual_TNT_final"
-            metric_label = "Actual Speed"
+        metric_label = "Actual Click-to-Doorstep"
         
         # Calculate Current Fiscal Year Start (Start on Jan 31st)
         if end_date.month >= 2:
@@ -288,16 +280,10 @@ class BigQueryConnector:
             target_ids.add(legacy_id)
         
         target_ids_list = list(target_ids)
-        print(f"[CTP] Querying for PID: {pid} ({period_type}, {metric_type}, {days_back} days) (Targets: {target_ids_list})...")
+        print(f"[CTP] Querying for PID: {pid} ({period_type}, {days_back} days) (Targets: {target_ids_list})...")
 
-        # Determine filtering based on metric type
-        # For 'actual' speed, we want delivered items.
-        # For 'promise' speed (CTP), we want ALL orders (even if not delivered yet).
-        delivery_filter = "AND ACTL_DLVR_DT IS NOT NULL" if metric_type == "actual" else ""
-        
-        # NOTE: With Promise Groups, we don't need to filter by calculated speed buckets (0-30 days)
-        # We assume Promise Group is populated. If not, it falls into 'Unknown' or is excluded in aggregation.
-        # So we remove the 'speed_col BETWEEN 0 AND 30' check.
+        delivery_filter = "AND ACTL_DLVR_DT IS NOT NULL AND ACTL_DLVR_DT <= CURRENT_DATE() AND DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) >= 0"
+
         
 
 
@@ -339,16 +325,16 @@ class BigQueryConnector:
                 EXTRACT(MONTH FROM ORDER_DATE) AS month,
                 EXTRACT(YEAR  FROM ORDER_DATE) AS year,
 
-                -- Use Promise_Group for Speed Buckets
-                -- Map 'Same Day' and 'Next Day' to '1-day'
-                -- Map others directly
+                -- Actual Click-to-Doorstep Days
                 CASE
-                    WHEN Promise_Group IN ('Same Day', 'Next Day') THEN '1-day'
-                    WHEN Promise_Group = '2 Day' THEN '2-day'
-                    WHEN Promise_Group = '3 Day' THEN '3-day'
-                    WHEN Promise_Group = '4-7 Day' THEN '4-7 Day'
-                    WHEN Promise_Group = '7+ Day' THEN '7+ Day'
-                    ELSE 'Other' -- Handle unexpected values
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) <= 1 THEN '1 Day'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 2  THEN '2 Days'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 3  THEN '3 Days'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 4  THEN '4 Days'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) = 5  THEN '5 Days'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) IN (6, 7) THEN '6-7 Days'
+                    WHEN DATE_DIFF(CAST(ACTL_DLVR_DT AS DATE), CAST(ORDER_DATE AS DATE), DAY) >= 8 THEN '8+ Days'
+                    ELSE 'Other'
                 END AS speed_bucket,
 
                 COALESCE(Division, '') AS division,
